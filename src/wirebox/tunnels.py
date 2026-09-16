@@ -317,6 +317,12 @@ class AsyncTunnelsClient:
                             )
             except asyncio.CancelledError:
                 pass
+            except websockets.exceptions.ConnectionClosed as exc:
+                code = getattr(exc, "code", None)
+                if code is None:
+                    code = getattr(getattr(exc, "rcvd", None), "code", None) or getattr(getattr(exc, "sent", None), "code", None)
+                if code not in (1000, 1001):
+                    logger.warning(f"Tunnel connection closed unexpectedly: {exc}")
             except Exception as exc:
                 logger.warning(f"Tunnel proxy loop closed: {exc}")
             finally:
