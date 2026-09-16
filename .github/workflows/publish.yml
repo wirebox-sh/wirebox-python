@@ -32,8 +32,8 @@ jobs:
 
       - name: Run test suite
         run: |
-          uv run pytest
-          uv run ruff check
+          uv run --extra dev pytest
+          uv run --extra dev ruff check
 
       - name: Build sdist and wheel
         run: uv build
