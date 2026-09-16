@@ -52,6 +52,25 @@ def _normalize_forward_to(target: str | int | None) -> str:
     return val.rstrip("/")
 
 
+def _is_ws_closed(ws: Any) -> bool:
+    if hasattr(ws, "closed"):
+        return bool(ws.closed)
+    if hasattr(ws, "state"):
+        try:
+            from websockets.protocol import State
+
+            return ws.state in (State.CLOSED, State.CLOSING)
+        except Exception:
+            return False
+    return False
+
+
+async def _close_ws(ws: Any) -> None:
+    if not _is_ws_closed(ws):
+        with contextlib.suppress(Exception):
+            await ws.close()
+
+
 class TunnelSession:
     """An active live reverse-proxy tunnel session."""
 
@@ -72,12 +91,11 @@ class TunnelSession:
 
     @property
     def is_connected(self) -> bool:
-        return not self._ws.closed
+        return not _is_ws_closed(self._ws)
 
     async def close(self) -> None:
         """Closes the tunnel WebSocket connection and terminates the proxy session."""
-        if not self._ws.closed:
-            await self._ws.close()
+        await _close_ws(self._ws)
         if not self._listen_task.done():
             self._listen_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -303,8 +321,7 @@ class AsyncTunnelsClient:
                 logger.warning(f"Tunnel proxy loop closed: {exc}")
             finally:
                 await local_http.aclose()
-                if not ws.closed:
-                    await ws.close()
+                await _close_ws(ws)
 
         listen_task = asyncio.create_task(_proxy_loop())
 
