@@ -32,6 +32,25 @@ class MailboxSummary:
 
 
 @dataclass(frozen=True)
+class IdentityTunnelSummary:
+    """Summary representation of an agent's network tunnel attached to its identity."""
+
+    id: str
+    public_url: str
+    status: Literal["active", "disabled"] = "active"
+    is_connected: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> IdentityTunnelSummary:
+        return cls(
+            id=str(data.get("id", "")),
+            public_url=str(data.get("public_url", "")),
+            status=data.get("status", "active"),
+            is_connected=bool(data.get("is_connected", False)),
+        )
+
+
+@dataclass(frozen=True)
 class IdentityData:
     """Raw snapshot of an agent identity returned by the API."""
 
@@ -44,13 +63,56 @@ class IdentityData:
     created_at: str
     updated_at: str
     mailboxes: list[MailboxSummary] = field(default_factory=list)
+    tunnel: IdentityTunnelSummary | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> IdentityData:
-        mailboxes_raw = data.get("mailboxes", [])
-        mailboxes = [
-            MailboxSummary.from_dict(m) if isinstance(m, dict) else m for m in mailboxes_raw
-        ]
+        mailboxes: list[MailboxSummary] = []
+        if "mailboxes" in data and isinstance(data["mailboxes"], list):
+            for m in data["mailboxes"]:
+                if isinstance(m, dict):
+                    mailboxes.append(MailboxSummary.from_dict(m))
+                elif isinstance(m, MailboxSummary):
+                    mailboxes.append(m)
+        elif "mailbox" in data and isinstance(data["mailbox"], dict):
+            mailboxes.append(MailboxSummary.from_dict(data["mailbox"]))
+        elif "email_address" in data and data["email_address"]:
+            mailboxes.append(
+                MailboxSummary(
+                    id=str(data.get("mailbox_id") or ""),
+                    email_address=str(data["email_address"]),
+                    created_at=str(data.get("created_at") or ""),
+                )
+            )
+        else:
+            handle = str(data.get("agent_handle", ""))
+            if handle:
+                mailboxes.append(
+                    MailboxSummary(
+                        id="",
+                        email_address=f"{handle}@wireboxmail.com",
+                        created_at=str(data.get("created_at") or ""),
+                    )
+                )
+
+        tunnel_summary: IdentityTunnelSummary | None = None
+        if "tunnel" in data and isinstance(data["tunnel"], dict):
+            tunnel_summary = IdentityTunnelSummary.from_dict(data["tunnel"])
+        elif "tunnels" in data and isinstance(data["tunnels"], list) and data["tunnels"]:
+            first_t = data["tunnels"][0]
+            if isinstance(first_t, dict):
+                tunnel_summary = IdentityTunnelSummary.from_dict(first_t)
+            elif isinstance(first_t, IdentityTunnelSummary):
+                tunnel_summary = first_t
+        elif "agent_handle" in data:
+            handle = str(data["agent_handle"])
+            tunnel_summary = IdentityTunnelSummary(
+                id="",
+                public_url=f"https://{handle}.wirebox.run",
+                status="active",
+                is_connected=False,
+            )
+
         return cls(
             id=str(data.get("id", "")),
             organization_id=str(data.get("organization_id", "")),
@@ -61,6 +123,7 @@ class IdentityData:
             created_at=str(data.get("created_at", "")),
             updated_at=str(data.get("updated_at", "")),
             mailboxes=mailboxes,
+            tunnel=tunnel_summary,
         )
 
 

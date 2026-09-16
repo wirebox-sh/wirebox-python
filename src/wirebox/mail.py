@@ -97,7 +97,12 @@ class MailClient:
             params["status"] = status
 
         data = self._http.get(f"/v1/mailboxes/{quote(mailbox_address)}/messages", params=params)
-        messages_raw = data.get("messages", []) if isinstance(data, dict) else []
+        if isinstance(data, list):
+            messages_raw = data
+        elif isinstance(data, dict):
+            messages_raw = data.get("messages", [])
+        else:
+            messages_raw = []
         return [MessageSummary.from_dict(m) for m in messages_raw]
 
     def get_message(self, mailbox_address: str, message_id: str) -> EmailMessage:
@@ -188,7 +193,12 @@ class AsyncMailClient:
         data = await self._http.get(
             f"/v1/mailboxes/{quote(mailbox_address)}/messages", params=params
         )
-        messages_raw = data.get("messages", []) if isinstance(data, dict) else []
+        if isinstance(data, list):
+            messages_raw = data
+        elif isinstance(data, dict):
+            messages_raw = data.get("messages", [])
+        else:
+            messages_raw = []
         return [MessageSummary.from_dict(m) for m in messages_raw]
 
     async def get_message(self, mailbox_address: str, message_id: str) -> EmailMessage:

@@ -93,7 +93,12 @@ class Wirebox:
             params["status"] = status
 
         data = self._transport.get("/v1/identities", params=params)
-        raw_items = data.get("identities", []) if isinstance(data, dict) else []
+        if isinstance(data, list):
+            raw_items = data
+        elif isinstance(data, dict):
+            raw_items = data.get("identities", [])
+        else:
+            raw_items = []
         return [AgentIdentity(IdentityData.from_dict(item), self._transport) for item in raw_items]
 
     def whoami(self) -> WhoamiResult:

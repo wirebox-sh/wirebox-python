@@ -11,12 +11,12 @@ from typing import Any, Literal
 from urllib.parse import quote
 
 from wirebox._http import AsyncHttpTransport, SyncHttpTransport
-from wirebox.exceptions import WireboxError
 from wirebox.mail import AsyncMailClient, MailClient
 from wirebox.tunnels import AsyncTunnelsClient, TunnelsClient, TunnelSession
 from wirebox.types import (
     EmailMessage,
     IdentityData,
+    IdentityTunnelSummary,
     MailboxSummary,
     MessageSummary,
     SendEmailAttachment,
@@ -77,9 +77,24 @@ class AgentIdentity:
 
     @property
     def mailbox(self) -> MailboxSummary:
-        if not self._data.mailboxes:
-            raise WireboxError(f"Agent '@{self.agent_handle}' has no active mailboxes provisioned.")
-        return self._data.mailboxes[0]
+        if self._data.mailboxes:
+            return self._data.mailboxes[0]
+        return MailboxSummary(
+            id="",
+            email_address=f"{self.agent_handle}@wireboxmail.com",
+            created_at=self.created_at,
+        )
+
+    @property
+    def tunnel(self) -> IdentityTunnelSummary:
+        if self._data.tunnel:
+            return self._data.tunnel
+        return IdentityTunnelSummary(
+            id="",
+            public_url=f"https://{self.agent_handle}.wirebox.run",
+            status="active",
+            is_connected=False,
+        )
 
     def update(
         self,
@@ -282,9 +297,24 @@ class AsyncAgentIdentity:
 
     @property
     def mailbox(self) -> MailboxSummary:
-        if not self._data.mailboxes:
-            raise WireboxError(f"Agent '@{self.agent_handle}' has no active mailboxes provisioned.")
-        return self._data.mailboxes[0]
+        if self._data.mailboxes:
+            return self._data.mailboxes[0]
+        return MailboxSummary(
+            id="",
+            email_address=f"{self.agent_handle}@wireboxmail.com",
+            created_at=self.created_at,
+        )
+
+    @property
+    def tunnel(self) -> IdentityTunnelSummary:
+        if self._data.tunnel:
+            return self._data.tunnel
+        return IdentityTunnelSummary(
+            id="",
+            public_url=f"https://{self.agent_handle}.wirebox.run",
+            status="active",
+            is_connected=False,
+        )
 
     async def update(
         self,

@@ -82,7 +82,12 @@ class WebhooksClient:
             params["offset"] = offset
 
         data = self._http.get("/v1/webhooks", params=params)
-        raw_webhooks = data.get("webhooks", []) if isinstance(data, dict) else []
+        if isinstance(data, list):
+            raw_webhooks = data
+        elif isinstance(data, dict):
+            raw_webhooks = data.get("webhooks", [])
+        else:
+            raw_webhooks = []
         return [Webhook.from_dict(w) for w in raw_webhooks]
 
     def get(self, webhook_id: str) -> Webhook:
@@ -180,7 +185,12 @@ class AsyncWebhooksClient:
             params["offset"] = offset
 
         data = await self._http.get("/v1/webhooks", params=params)
-        raw_webhooks = data.get("webhooks", []) if isinstance(data, dict) else []
+        if isinstance(data, list):
+            raw_webhooks = data
+        elif isinstance(data, dict):
+            raw_webhooks = data.get("webhooks", [])
+        else:
+            raw_webhooks = []
         return [Webhook.from_dict(w) for w in raw_webhooks]
 
     async def get(self, webhook_id: str) -> Webhook:

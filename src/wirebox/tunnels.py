@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextlib
+import inspect
 import json
 import logging
 from typing import Any, Literal
@@ -110,7 +111,12 @@ class TunnelsClient:
             params["limit"] = limit
 
         data = self._http.get("/v1/tunnels", params=params)
-        raw_tunnels = data.get("tunnels", []) if isinstance(data, dict) else []
+        if isinstance(data, list):
+            raw_tunnels = data
+        elif isinstance(data, dict):
+            raw_tunnels = data.get("tunnels", [])
+        else:
+            raw_tunnels = []
         return [Tunnel.from_dict(t) for t in raw_tunnels]
 
     def get(self, handle_or_id: str) -> Tunnel:
@@ -148,7 +154,12 @@ class AsyncTunnelsClient:
             params["limit"] = limit
 
         data = await self._http.get("/v1/tunnels", params=params)
-        raw_tunnels = data.get("tunnels", []) if isinstance(data, dict) else []
+        if isinstance(data, list):
+            raw_tunnels = data
+        elif isinstance(data, dict):
+            raw_tunnels = data.get("tunnels", [])
+        else:
+            raw_tunnels = []
         return [Tunnel.from_dict(t) for t in raw_tunnels]
 
     async def get(self, handle_or_id: str) -> Tunnel:
@@ -198,12 +209,19 @@ class AsyncTunnelsClient:
             "X-Client-Version": client_version or f"wirebox-python/{__version__}",
         }
 
+        ws_kwargs: dict[str, Any] = {
+            "ping_interval": 20,
+            "ping_timeout": 20,
+        }
+        if "additional_headers" in inspect.signature(websockets.connect).parameters:
+            ws_kwargs["additional_headers"] = headers
+        else:
+            ws_kwargs["extra_headers"] = headers
+
         try:
             ws = await websockets.connect(
                 ws_url_with_params,
-                extra_headers=headers,
-                ping_interval=20,
-                ping_timeout=20,
+                **ws_kwargs,
             )
         except Exception as exc:
             raise WireboxConnectionError(

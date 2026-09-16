@@ -30,6 +30,55 @@ def test_identity_data_from_dict():
     assert identity.mailboxes[0].email_address == "sales-bot@wireboxmail.com"
 
 
+def test_identity_data_from_dict_singular_mailbox_and_tunnel():
+    # Matches actual Wirebox Core API POST /v1/identities and GET /v1/identities/:handle responses
+    raw = {
+        "id": "agt_2",
+        "organization_id": "org_1",
+        "agent_handle": "webhook-bot",
+        "display_name": "Webhook Bot",
+        "description": "Handles webhooks",
+        "status": "active",
+        "email_address": "webhook-bot@wireboxmail.com",
+        "created_at": "2026-09-14T10:00:00Z",
+        "updated_at": "2026-09-14T10:00:00Z",
+        "mailbox": {
+            "id": "mbx_2",
+            "email_address": "webhook-bot@wireboxmail.com",
+            "created_at": "2026-09-14T10:00:00Z",
+        },
+        "tunnel": {
+            "id": "tun_2",
+            "public_url": "https://webhook-bot.wirebox.run",
+            "status": "active",
+            "is_connected": False,
+        },
+    }
+    identity = IdentityData.from_dict(raw)
+    assert identity.id == "agt_2"
+    assert len(identity.mailboxes) == 1
+    assert identity.mailboxes[0].id == "mbx_2"
+    assert identity.mailboxes[0].email_address == "webhook-bot@wireboxmail.com"
+    assert identity.tunnel is not None
+    assert identity.tunnel.public_url == "https://webhook-bot.wirebox.run"
+
+
+def test_identity_data_fallback_mailbox_and_tunnel():
+    raw = {
+        "id": "agt_3",
+        "organization_id": "org_1",
+        "agent_handle": "fallback-bot",
+        "status": "active",
+        "created_at": "2026-09-14T10:00:00Z",
+        "updated_at": "2026-09-14T10:00:00Z",
+    }
+    identity = IdentityData.from_dict(raw)
+    assert len(identity.mailboxes) == 1
+    assert identity.mailboxes[0].email_address == "fallback-bot@wireboxmail.com"
+    assert identity.tunnel is not None
+    assert identity.tunnel.public_url == "https://fallback-bot.wirebox.run"
+
+
 def test_tunnel_from_dict():
     raw = {
         "id": "tun_1",

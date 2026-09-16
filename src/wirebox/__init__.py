@@ -23,6 +23,7 @@ from wirebox.tunnels import TunnelSession
 from wirebox.types import (
     EmailMessage,
     IdentityData,
+    IdentityTunnelSummary,
     MailboxSummary,
     MessageAttachmentSummary,
     MessageSummary,
@@ -62,6 +63,7 @@ __all__ = [
     "ValidationError",
     # Types
     "IdentityData",
+    "IdentityTunnelSummary",
     "MailboxSummary",
     "SendEmailAttachment",
     "SendEmailResult",

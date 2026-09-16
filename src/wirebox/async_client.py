@@ -106,7 +106,12 @@ class AsyncWirebox:
             params["status"] = status
 
         data = await self._transport.get("/v1/identities", params=params)
-        raw_items = data.get("identities", []) if isinstance(data, dict) else []
+        if isinstance(data, list):
+            raw_items = data
+        elif isinstance(data, dict):
+            raw_items = data.get("identities", [])
+        else:
+            raw_items = []
         return [
             AsyncAgentIdentity(
                 IdentityData.from_dict(item),
