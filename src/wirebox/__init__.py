@@ -43,10 +43,16 @@ from wirebox.types import (
 )
 from wirebox.verify_webhook import verify_webhook
 
+# Canonical aliases for cross-SDK naming consistency
+WireboxClient = Wirebox
+AsyncWireboxClient = AsyncWirebox
+
 __all__ = [
     "__version__",
     "Wirebox",
+    "WireboxClient",
     "AsyncWirebox",
+    "AsyncWireboxClient",
     "AgentIdentity",
     "AsyncAgentIdentity",
     "TunnelSession",

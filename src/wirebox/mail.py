@@ -24,20 +24,24 @@ def _format_send_payload(
     subject: str,
     text: str | None = None,
     html: str | None = None,
+    body_text: str | None = None,
+    body_html: str | None = None,
     cc: str | list[str] | None = None,
     bcc: str | list[str] | None = None,
     reply_to: str | None = None,
     attachments: list[SendEmailAttachment] | None = None,
     headers: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
+    actual_text = text if text is not None else body_text
+    actual_html = html if html is not None else body_html
     payload: dict[str, Any] = {
         "to": [to] if isinstance(to, str) else list(to),
         "subject": subject,
     }
-    if text is not None:
-        payload["text"] = text
-    if html is not None:
-        payload["html"] = html
+    if actual_text is not None:
+        payload["text"] = actual_text
+    if actual_html is not None:
+        payload["html"] = actual_html
     if cc is not None:
         payload["cc"] = [cc] if isinstance(cc, str) else list(cc)
     if bcc is not None:
@@ -55,7 +59,7 @@ def _format_send_payload(
 
 
 class MailClient:
-    """Synchronous mail management client."""
+    """Synchronous client for mail operations."""
 
     def __init__(self, http: SyncHttpTransport) -> None:
         self._http = http
@@ -63,11 +67,13 @@ class MailClient:
     def send(
         self,
         mailbox_address: str,
+        *,
         to: str | list[str],
         subject: str,
-        *,
         text: str | None = None,
         html: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
         cc: str | list[str] | None = None,
         bcc: str | list[str] | None = None,
         reply_to: str | None = None,
@@ -75,7 +81,17 @@ class MailClient:
         headers: Mapping[str, str] | None = None,
     ) -> SendEmailResult:
         body = _format_send_payload(
-            to, subject, text, html, cc, bcc, reply_to, attachments, headers
+            to,
+            subject,
+            text=text,
+            html=html,
+            body_text=body_text,
+            body_html=body_html,
+            cc=cc,
+            bcc=bcc,
+            reply_to=reply_to,
+            attachments=attachments,
+            headers=headers,
         )
         data = self._http.post(f"/v1/mailboxes/{quote(mailbox_address)}/messages", json=body)
         return SendEmailResult.from_dict(data)
@@ -157,11 +173,13 @@ class AsyncMailClient:
     async def send(
         self,
         mailbox_address: str,
+        *,
         to: str | list[str],
         subject: str,
-        *,
         text: str | None = None,
         html: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
         cc: str | list[str] | None = None,
         bcc: str | list[str] | None = None,
         reply_to: str | None = None,
@@ -169,7 +187,17 @@ class AsyncMailClient:
         headers: Mapping[str, str] | None = None,
     ) -> SendEmailResult:
         body = _format_send_payload(
-            to, subject, text, html, cc, bcc, reply_to, attachments, headers
+            to,
+            subject,
+            text=text,
+            html=html,
+            body_text=body_text,
+            body_html=body_html,
+            cc=cc,
+            bcc=bcc,
+            reply_to=reply_to,
+            attachments=attachments,
+            headers=headers,
         )
         data = await self._http.post(f"/v1/mailboxes/{quote(mailbox_address)}/messages", json=body)
         return SendEmailResult.from_dict(data)
@@ -200,6 +228,8 @@ class AsyncMailClient:
         else:
             messages_raw = []
         return [MessageSummary.from_dict(m) for m in messages_raw]
+
+    list_emails = list_messages
 
     async def get_message(self, mailbox_address: str, message_id: str) -> EmailMessage:
         data = await self._http.get(

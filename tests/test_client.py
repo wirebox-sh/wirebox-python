@@ -110,9 +110,9 @@ def test_client_create_identity_and_email_operations():
         assert agent.agent_handle == "sales-bot"
         assert agent.mailbox.email_address == "sales-bot@wireboxmail.com"
 
-        # Send email
+        # Send email with body_text (inkbox compatibility)
         result = agent.send_email(
-            to="customer@example.com", subject="Pricing", text="Here is pricing."
+            to=["customer@example.com"], subject="Pricing", body_text="Here is pricing."
         )
         assert result.id == "msg_001"
         assert result.status == "queued"
@@ -121,10 +121,13 @@ def test_client_create_identity_and_email_operations():
         reply_res = agent.reply_email("msg_001", text="Thanks for contacting sales!")
         assert reply_res.id == "msg_002"
 
-        # List messages
+        # List messages and iter_emails (inkbox compatibility)
         msgs = agent.list_messages(limit=10)
         assert len(msgs) == 1
         assert msgs[0].from_address == "customer@example.com"
+        emails = list(agent.iter_emails())
+        assert len(emails) == 1
+        assert emails[0].subject == "Inquiry"
 
         # Create webhook
         webhook = agent.create_webhook(

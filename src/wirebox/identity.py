@@ -126,6 +126,8 @@ class AgentIdentity:
         *,
         text: str | None = None,
         html: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
         cc: str | list[str] | None = None,
         bcc: str | list[str] | None = None,
         reply_to: str | None = None,
@@ -138,6 +140,8 @@ class AgentIdentity:
             subject=subject,
             text=text,
             html=html,
+            body_text=body_text,
+            body_html=body_html,
             cc=cc,
             bcc=bcc,
             reply_to=reply_to,
@@ -159,6 +163,8 @@ class AgentIdentity:
             status=status,
         )
 
+    list_emails = list_messages
+
     def iter_messages(
         self,
         *,
@@ -174,6 +180,8 @@ class AgentIdentity:
             offset += len(batch)
             if len(batch) < page_size:
                 break
+
+    iter_emails = iter_messages
 
     def get_message(self, message_id: str) -> EmailMessage:
         return self._mail.get_message(self.mailbox.email_address, message_id)
@@ -346,6 +354,8 @@ class AsyncAgentIdentity:
         *,
         text: str | None = None,
         html: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
         cc: str | list[str] | None = None,
         bcc: str | list[str] | None = None,
         reply_to: str | None = None,
@@ -358,6 +368,8 @@ class AsyncAgentIdentity:
             subject=subject,
             text=text,
             html=html,
+            body_text=body_text,
+            body_html=body_html,
             cc=cc,
             bcc=bcc,
             reply_to=reply_to,
@@ -379,6 +391,8 @@ class AsyncAgentIdentity:
             status=status,
         )
 
+    list_emails = list_messages
+
     async def iter_messages(
         self,
         *,
@@ -395,6 +409,8 @@ class AsyncAgentIdentity:
             offset += len(batch)
             if len(batch) < page_size:
                 break
+
+    iter_emails = iter_messages
 
     async def get_message(self, message_id: str) -> EmailMessage:
         return await self._mail.get_message(self.mailbox.email_address, message_id)
