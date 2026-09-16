@@ -248,6 +248,40 @@ class AsyncTunnelsClient:
 
         # Create persistent HTTP client for local forwarding
         local_http = httpx.AsyncClient(base_url=forward_origin, timeout=30.0)
+        local_ws_connections: dict[str, Any] = {}
+
+        async def _bridge_local_ws(c_id: str, local_client: Any) -> None:
+            try:
+                async for local_msg in local_client:
+                    is_binary = isinstance(local_msg, (bytes, bytearray))
+                    frame_data = (
+                        base64.b64encode(local_msg).decode("ascii") if is_binary else str(local_msg)
+                    )
+                    await ws.send(
+                        json.dumps(
+                            {
+                                "type": "ws_frame",
+                                "connId": c_id,
+                                "data": frame_data,
+                                "binary": is_binary,
+                            }
+                        )
+                    )
+            except Exception:
+                pass
+            finally:
+                local_ws_connections.pop(c_id, None)
+                with contextlib.suppress(Exception):
+                    await ws.send(
+                        json.dumps(
+                            {
+                                "type": "ws_close",
+                                "connId": c_id,
+                                "code": 1000,
+                                "reason": "Local WebSocket closed",
+                            }
+                        )
+                    )
 
         async def _proxy_loop() -> None:
             try:
@@ -260,6 +294,68 @@ class AsyncTunnelsClient:
                     msg_type = data.get("type")
                     if msg_type == "ping":
                         await ws.send(json.dumps({"type": "pong"}))
+                        continue
+
+                    if msg_type == "ws_open":
+                        c_id = data.get("connId")
+                        ws_path = data.get("path", "/")
+                        inbound_headers = data.get("headers", {})
+
+                        target_ws_origin = (
+                            forward_origin.replace("https://", "wss://").replace("http://", "ws://")
+                        )
+                        target_ws_url = f"{target_ws_origin}{ws_path}"
+
+                        subprotocol = inbound_headers.get("sec-websocket-protocol")
+                        subprotocols = (
+                            [s.strip() for s in subprotocol.split(",")] if subprotocol else None
+                        )
+
+                        try:
+                            ws_client_kwargs: dict[str, Any] = {}
+                            if subprotocols:
+                                ws_client_kwargs["subprotocols"] = subprotocols
+                            local_ws = await websockets.connect(target_ws_url, **ws_client_kwargs)
+                            local_ws_connections[c_id] = local_ws
+                            await ws.send(json.dumps({"type": "ws_opened", "connId": c_id}))
+                            asyncio.create_task(_bridge_local_ws(c_id, local_ws))
+                        except Exception as err:
+                            logger.error(f"Failed to connect local WebSocket at {target_ws_url}: {err}")
+                            await ws.send(
+                                json.dumps(
+                                    {
+                                        "type": "ws_error",
+                                        "connId": c_id,
+                                        "error": str(err),
+                                    }
+                                )
+                            )
+                        continue
+
+                    if msg_type == "ws_frame":
+                        c_id = data.get("connId")
+                        frame_data = data.get("data", "")
+                        is_binary = bool(data.get("binary"))
+                        local_ws = local_ws_connections.get(c_id)
+                        if local_ws and not _is_ws_closed(local_ws):
+                            try:
+                                if is_binary:
+                                    raw_bytes = base64.b64decode(frame_data)
+                                    await local_ws.send(raw_bytes)
+                                else:
+                                    await local_ws.send(frame_data)
+                            except Exception as err:
+                                logger.error(f"Failed to forward WS frame to local client: {err}")
+                        continue
+
+                    if msg_type == "ws_close":
+                        c_id = data.get("connId")
+                        code = data.get("code", 1000)
+                        reason = data.get("reason", "")
+                        local_ws = local_ws_connections.pop(c_id, None)
+                        if local_ws and not _is_ws_closed(local_ws):
+                            with contextlib.suppress(Exception):
+                                await local_ws.close(code, reason)
                         continue
 
                     if msg_type == "http_request":
@@ -326,6 +422,10 @@ class AsyncTunnelsClient:
             except Exception as exc:
                 logger.warning(f"Tunnel proxy loop closed: {exc}")
             finally:
+                for l_ws in list(local_ws_connections.values()):
+                    with contextlib.suppress(Exception):
+                        await l_ws.close(1001, "Tunnel disconnecting")
+                local_ws_connections.clear()
                 await local_http.aclose()
                 await _close_ws(ws)
 

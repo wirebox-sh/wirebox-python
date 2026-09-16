@@ -94,3 +94,65 @@ def test_sync_tunnels_crud():
     # 3. Update
     updated = client.tunnels.update("sales-bot", status="disabled")
     assert updated.status == "disabled"
+
+
+import asyncio
+import pytest
+from wirebox import AsyncWirebox
+
+
+@pytest.mark.asyncio
+async def test_async_tunnel_connect_websocket_proxy(monkeypatch):
+    class MockWS:
+        def __init__(self):
+            self.sent = []
+            self.closed = False
+
+        async def send(self, data: str):
+            self.sent.append(data)
+
+        async def close(self, code=1000, reason=""):
+            self.closed = True
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            await asyncio.sleep(0.01)
+            raise StopAsyncIteration
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/tunnels/sales-bot":
+            return httpx.Response(
+                200,
+                json={
+                    "id": "tun_1",
+                    "agent_handle": "sales-bot",
+                    "public_url": "https://sales-bot.tunnel.wirebox.sh",
+                    "public_host": "sales-bot.tunnel.wirebox.sh",
+                    "status": "active",
+                    "is_connected": False,
+                    "connected_clients": 0,
+                    "created_at": "2026-09-14T10:00:00Z",
+                    "updated_at": "2026-09-14T10:00:00Z",
+                },
+            )
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    http_client = httpx.AsyncClient(transport=transport, base_url="https://api.wirebox.sh")
+    client = AsyncWirebox(api_key="wb_live_test", http_client=http_client)
+
+    mock_ws = MockWS()
+
+    async def mock_ws_connect(*args, **kwargs):
+        return mock_ws
+
+    monkeypatch.setattr("websockets.connect", mock_ws_connect)
+
+    session = await client.tunnels.connect("sales-bot", forward_to=8000)
+    assert session.is_connected
+    assert session.public_url == "https://sales-bot.tunnel.wirebox.sh"
+
+    await session.close()
+    assert session.is_connected is False
