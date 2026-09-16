@@ -1,6 +1,9 @@
-import httpx
+import asyncio
 
-from wirebox import Wirebox
+import httpx
+import pytest
+
+from wirebox import AsyncWirebox, Wirebox
 from wirebox.tunnels import _normalize_forward_to, _normalize_identifier
 
 
@@ -94,11 +97,6 @@ def test_sync_tunnels_crud():
     # 3. Update
     updated = client.tunnels.update("sales-bot", status="disabled")
     assert updated.status == "disabled"
-
-
-import asyncio
-import pytest
-from wirebox import AsyncWirebox
 
 
 @pytest.mark.asyncio
