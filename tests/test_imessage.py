@@ -117,31 +117,6 @@ def test_imessage_sync_client_and_agent_identity():
                     "has_more": False,
                 },
             )
-
-        if method == "GET" and url_path == "/v1/imessage/users":
-            return httpx.Response(
-                200,
-                json={
-                    "data": [
-                        {"phone_number": "+16465550123", "assigned_router_number": "+16282649335"}
-                    ],
-                    "total": 1,
-                },
-            )
-
-        if method == "POST" and url_path == "/v1/imessage/users":
-            body = json.loads(request.content.decode())
-            return httpx.Response(
-                201,
-                json={
-                    "phone_number": body["phone_number"],
-                    "assigned_router_number": "+16282649335",
-                },
-            )
-
-        if method == "DELETE" and url_path.startswith("/v1/imessage/users/"):
-            return httpx.Response(200, json={"status": "deleted", "phone_number": "+16465550123"})
-
         return httpx.Response(404, json={"error": "Not Found"})
 
     client = Wirebox(
@@ -181,18 +156,7 @@ def test_imessage_sync_client_and_agent_identity():
     assert sent.id == "msg_sent001"
     assert sent.status == "sent"
 
-    # 4. Users
-    users = client.imessage.users.list()
-    assert len(users) == 1
-    assert users[0].phone_number == "+16465550123"
-
-    user_added = client.imessage.users.add("+16465559999")
-    assert user_added.phone_number == "+16465559999"
-
-    user_del = client.imessage.users.remove("+16465550123")
-    assert user_del["status"] == "deleted"
-
-    # 5. AgentIdentity scoped methods
+    # 4. AgentIdentity scoped methods
     agent_data = IdentityData(
         id="agt_123",
         organization_id="org_abc",

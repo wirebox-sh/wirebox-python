@@ -331,6 +331,8 @@ WebhookEventType = Literal[
     "message.failed",
     "imessage.received",
     "imessage.sent",
+    "imessage.delivered",
+    "imessage.failed",
     "test.ping",
     "*",
     str,
@@ -648,23 +650,3 @@ class SendImessageResult:
             created_at=str(data.get("created_at", "")),
         )
 
-
-@dataclass(frozen=True)
-class ImessageUser:
-    """Registered phone number on the iMessage gateway."""
-
-    phone_number: str
-    assigned_router_number: str | None = None
-    id: str | None = None
-    status: str | None = None
-    created_at: str | None = None
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ImessageUser:
-        return cls(
-            phone_number=str(data.get("phone_number", "")),
-            assigned_router_number=data.get("assigned_router_number"),
-            id=data.get("id"),
-            status=data.get("status"),
-            created_at=data.get("created_at"),
-        )

@@ -14,7 +14,6 @@ from wirebox.types import (
     ImessageConversation,
     ImessageMessage,
     ImessageRouterInfo,
-    ImessageUser,
     SendImessageResult,
 )
 
@@ -133,35 +132,6 @@ class IMessageMessagesClient:
         return SendImessageResult.from_dict(data)
 
 
-class IMessageUsersClient:
-    """Synchronous operations on iMessage gateway user allowlist."""
-
-    def __init__(self, http: SyncHttpTransport) -> None:
-        self._http = http
-
-    def list(self) -> list[ImessageUser]:
-        """Lists registered phone numbers on the gateway."""
-        data = self._http.get("/v1/imessage/users")
-        raw_items = (
-            data.get("data", [])
-            if isinstance(data, dict)
-            else (data if isinstance(data, list) else [])
-        )
-        return [ImessageUser.from_dict(u) for u in raw_items]
-
-    def add(self, phone_number: str) -> ImessageUser:
-        """Pre-provisions a user phone number on the gateway."""
-        data = self._http.post("/v1/imessage/users", json={"phone_number": phone_number})
-        return ImessageUser.from_dict(data)
-
-    def remove(self, phone_number: str) -> dict[str, Any]:
-        """Removes a user phone number from the gateway."""
-        data = self._http.delete(f"/v1/imessage/users/{quote(phone_number)}")
-        return (
-            data if isinstance(data, dict) else {"status": "deleted", "phone_number": phone_number}
-        )
-
-
 class IMessageClient:
     """Synchronous top-level client for Wirebox iMessage operations."""
 
@@ -169,7 +139,6 @@ class IMessageClient:
         self._http = http
         self.conversations = IMessageConversationsClient(http)
         self.messages = IMessageMessagesClient(http)
-        self.users = IMessageUsersClient(http)
 
     def get_router(
         self,
@@ -294,35 +263,6 @@ class AsyncIMessageMessagesClient:
         return SendImessageResult.from_dict(data)
 
 
-class AsyncIMessageUsersClient:
-    """Asynchronous operations on iMessage gateway user allowlist."""
-
-    def __init__(self, http: AsyncHttpTransport) -> None:
-        self._http = http
-
-    async def list(self) -> list[ImessageUser]:
-        """Lists registered phone numbers on the gateway."""
-        data = await self._http.get("/v1/imessage/users")
-        raw_items = (
-            data.get("data", [])
-            if isinstance(data, dict)
-            else (data if isinstance(data, list) else [])
-        )
-        return [ImessageUser.from_dict(u) for u in raw_items]
-
-    async def add(self, phone_number: str) -> ImessageUser:
-        """Pre-provisions a user phone number on the gateway."""
-        data = await self._http.post("/v1/imessage/users", json={"phone_number": phone_number})
-        return ImessageUser.from_dict(data)
-
-    async def remove(self, phone_number: str) -> dict[str, Any]:
-        """Removes a user phone number from the gateway."""
-        data = await self._http.delete(f"/v1/imessage/users/{quote(phone_number)}")
-        return (
-            data if isinstance(data, dict) else {"status": "deleted", "phone_number": phone_number}
-        )
-
-
 class AsyncIMessageClient:
     """Asynchronous top-level client for Wirebox iMessage operations."""
 
@@ -330,7 +270,6 @@ class AsyncIMessageClient:
         self._http = http
         self.conversations = AsyncIMessageConversationsClient(http)
         self.messages = AsyncIMessageMessagesClient(http)
-        self.users = AsyncIMessageUsersClient(http)
 
     async def get_router(
         self,
