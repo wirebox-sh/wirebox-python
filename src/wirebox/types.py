@@ -329,6 +329,12 @@ WebhookEventType = Literal[
     "message.delivered",
     "message.bounced",
     "message.failed",
+    "imessage.connected",
+    "imessage.disconnected",
+    "imessage.received",
+    "imessage.sent",
+    "imessage.delivered",
+    "imessage.failed",
     "test.ping",
     "*",
     str,
@@ -510,3 +516,139 @@ class WhoamiResult:
             api_key=WhoamiApiKey.from_dict(api_key_raw) if isinstance(api_key_raw, dict) else None,
             agent_identity_id=data.get("agent_identity_id"),
         )
+
+
+# ============================================================================
+# iMessage Types
+# ============================================================================
+
+
+@dataclass(frozen=True)
+class ImessageRouterInfo:
+    """Active iMessage router number, connect command, and QR code URI."""
+
+    router_number: str
+    agent_handle: str
+    connect_command: str
+    qr_uri: str
+    status: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ImessageRouterInfo:
+        return cls(
+            router_number=str(data.get("router_number", "")),
+            agent_handle=str(data.get("agent_handle", "")),
+            connect_command=str(data.get("connect_command", "")),
+            qr_uri=str(data.get("qr_uri", "")),
+            status=str(data.get("status", "online")),
+        )
+
+
+@dataclass(frozen=True)
+class ImessageConversationLastMessage:
+    """Summary of the latest message in an iMessage conversation."""
+
+    id: str
+    direction: Literal["inbound", "outbound"]
+    text: str | None
+    has_media: bool
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ImessageConversationLastMessage:
+        return cls(
+            id=str(data.get("id", "")),
+            direction=data.get("direction", "inbound"),
+            text=data.get("text"),
+            has_media=bool(data.get("has_media", False)),
+            created_at=str(data.get("created_at", "")),
+        )
+
+
+@dataclass(frozen=True)
+class ImessageConversation:
+    """An iMessage conversation between an agent identity and a human recipient."""
+
+    id: str
+    identity_id: str
+    user_phone: str
+    status: Literal["connected", "disconnected"]
+    unread_count: int
+    created_at: str
+    updated_at: str
+    last_message: ImessageConversationLastMessage | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ImessageConversation:
+        last_msg_raw = data.get("last_message")
+        return cls(
+            id=str(data.get("id", "")),
+            identity_id=str(data.get("identity_id", "")),
+            user_phone=str(data.get("user_phone", "")),
+            status=data.get("status", "connected"),
+            unread_count=int(data.get("unread_count", 0)),
+            created_at=str(data.get("created_at", "")),
+            updated_at=str(data.get("updated_at", "")),
+            last_message=ImessageConversationLastMessage.from_dict(last_msg_raw)
+            if isinstance(last_msg_raw, dict)
+            else None,
+        )
+
+
+@dataclass(frozen=True)
+class ImessageMessage:
+    """A message in an iMessage conversation."""
+
+    id: str
+    conversation_id: str
+    identity_id: str
+    direction: Literal["inbound", "outbound"]
+    sender: str
+    text: str | None
+    media_url: str | None
+    is_read: bool
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ImessageMessage:
+        return cls(
+            id=str(data.get("id", "")),
+            conversation_id=str(data.get("conversation_id", "")),
+            identity_id=str(data.get("identity_id", "")),
+            direction=data.get("direction", "inbound"),
+            sender=str(data.get("sender", "")),
+            text=data.get("text"),
+            media_url=data.get("media_url"),
+            is_read=bool(data.get("is_read", False)),
+            created_at=str(data.get("created_at", "")),
+        )
+
+
+@dataclass(frozen=True)
+class SendImessageResult:
+    """Delivery confirmation for an outbound iMessage."""
+
+    id: str
+    conversation_id: str
+    identity_id: str
+    direction: str
+    to: str
+    text: str | None
+    media_url: str | None
+    status: str
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SendImessageResult:
+        return cls(
+            id=str(data.get("id", "")),
+            conversation_id=str(data.get("conversation_id", "")),
+            identity_id=str(data.get("identity_id", "")),
+            direction=str(data.get("direction", "outbound")),
+            to=str(data.get("to", "")),
+            text=data.get("text"),
+            media_url=data.get("media_url"),
+            status=str(data.get("status", "sent")),
+            created_at=str(data.get("created_at", "")),
+        )
+

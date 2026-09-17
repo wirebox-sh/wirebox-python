@@ -19,16 +19,22 @@ from wirebox.exceptions import (
     WireboxError,
 )
 from wirebox.identity import AgentIdentity, AsyncAgentIdentity
+from wirebox.imessage import AsyncIMessageClient, IMessageClient
 from wirebox.tunnels import TunnelSession
 from wirebox.types import (
     EmailMessage,
     IdentityData,
     IdentityTunnelSummary,
+    ImessageConversation,
+    ImessageConversationLastMessage,
+    ImessageMessage,
+    ImessageRouterInfo,
     MailboxSummary,
     MessageAttachmentSummary,
     MessageSummary,
     SendEmailAttachment,
     SendEmailResult,
+    SendImessageResult,
     Tunnel,
     TunnelClientTelemetry,
     Webhook,
@@ -55,6 +61,8 @@ __all__ = [
     "AsyncWireboxClient",
     "AgentIdentity",
     "AsyncAgentIdentity",
+    "IMessageClient",
+    "AsyncIMessageClient",
     "TunnelSession",
     "verify_webhook",
     # Exceptions
@@ -73,9 +81,14 @@ __all__ = [
     "MailboxSummary",
     "SendEmailAttachment",
     "SendEmailResult",
+    "SendImessageResult",
     "MessageAttachmentSummary",
     "MessageSummary",
     "EmailMessage",
+    "ImessageRouterInfo",
+    "ImessageConversation",
+    "ImessageConversationLastMessage",
+    "ImessageMessage",
     "Tunnel",
     "TunnelClientTelemetry",
     "Webhook",
