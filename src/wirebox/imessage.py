@@ -1,6 +1,6 @@
 """Wirebox Python SDK — iMessage Client.
 
-Provides synchronous and asynchronous clients to manage real-world Apple iMessage
+Provides synchronous and asynchronous clients to manage real-world iMessage
 communication channels for autonomous AI agents.
 """
 
