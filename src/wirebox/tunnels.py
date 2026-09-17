@@ -301,8 +301,8 @@ class AsyncTunnelsClient:
                         ws_path = data.get("path", "/")
                         inbound_headers = data.get("headers", {})
 
-                        target_ws_origin = (
-                            forward_origin.replace("https://", "wss://").replace("http://", "ws://")
+                        target_ws_origin = forward_origin.replace("https://", "wss://").replace(
+                            "http://", "ws://"
                         )
                         target_ws_url = f"{target_ws_origin}{ws_path}"
 
@@ -320,7 +320,9 @@ class AsyncTunnelsClient:
                             await ws.send(json.dumps({"type": "ws_opened", "connId": c_id}))
                             asyncio.create_task(_bridge_local_ws(c_id, local_ws))
                         except Exception as err:
-                            logger.error(f"Failed to connect local WebSocket at {target_ws_url}: {err}")
+                            logger.error(
+                                f"Failed to connect local WebSocket at {target_ws_url}: {err}"
+                            )
                             await ws.send(
                                 json.dumps(
                                     {
@@ -417,7 +419,11 @@ class AsyncTunnelsClient:
                 sent_code = getattr(getattr(exc, "sent", None), "code", None)
                 rcvd_code = getattr(getattr(exc, "rcvd", None), "code", None)
                 normal_codes = (1000, 1001)
-                if exc.code not in normal_codes and sent_code not in normal_codes and rcvd_code not in normal_codes:
+                if (
+                    exc.code not in normal_codes
+                    and sent_code not in normal_codes
+                    and rcvd_code not in normal_codes
+                ):
                     logger.warning(f"Tunnel connection closed unexpectedly: {exc}")
             except Exception as exc:
                 logger.warning(f"Tunnel proxy loop closed: {exc}")

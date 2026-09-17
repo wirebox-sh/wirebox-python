@@ -11,16 +11,21 @@ from typing import Any, Literal
 from urllib.parse import quote
 
 from wirebox._http import AsyncHttpTransport, SyncHttpTransport
+from wirebox.imessage import AsyncIMessageClient, IMessageClient
 from wirebox.mail import AsyncMailClient, MailClient
 from wirebox.tunnels import AsyncTunnelsClient, TunnelsClient, TunnelSession
 from wirebox.types import (
     EmailMessage,
     IdentityData,
     IdentityTunnelSummary,
+    ImessageConversation,
+    ImessageMessage,
+    ImessageRouterInfo,
     MailboxSummary,
     MessageSummary,
     SendEmailAttachment,
     SendEmailResult,
+    SendImessageResult,
     Tunnel,
     Webhook,
     WebhookCreateResult,
@@ -38,6 +43,7 @@ class AgentIdentity:
         self._mail = MailClient(http)
         self._tunnels = TunnelsClient(http)
         self._webhooks = WebhooksClient(http)
+        self._imessage = IMessageClient(http)
 
     @property
     def id(self) -> str:
@@ -248,6 +254,81 @@ class AgentIdentity:
             offset=offset,
         )
 
+    # ========================================================================
+    # iMessage Methods
+    # ========================================================================
+
+    def get_imessage_router(self, user_phone: str | None = None) -> ImessageRouterInfo:
+        """Retrieves this agent's iMessage router number, connect command, and QR URI."""
+        return self._imessage.get_router(agent=self.agent_handle, user_phone=user_phone)
+
+    def send_imessage(
+        self,
+        *,
+        conversation_id: str | None = None,
+        to: str | None = None,
+        text: str | None = None,
+        media_url: str | None = None,
+    ) -> SendImessageResult:
+        """Sends an outbound iMessage from this agent identity."""
+        return self._imessage.messages.send(
+            conversation_id=conversation_id,
+            to=to,
+            text=text,
+            media_url=media_url,
+            identity_id=self.id,
+        )
+
+    def list_imessage_conversations(
+        self,
+        *,
+        status: Literal["connected", "disconnected"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> list[ImessageConversation]:
+        """Lists iMessage conversations belonging to this agent identity."""
+        return self._imessage.conversations.list(
+            identity_id=self.id,
+            status=status,
+            limit=limit,
+            cursor=cursor,
+        )
+
+    def list_imessage_messages(
+        self,
+        conversation_id: str,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> list[ImessageMessage]:
+        """Lists messages within an iMessage conversation."""
+        return self._imessage.messages.list(
+            conversation_id,
+            limit=limit,
+            cursor=cursor,
+        )
+
+    def iter_imessage_messages(
+        self,
+        conversation_id: str,
+        *,
+        limit: int = 50,
+    ) -> Iterator[ImessageMessage]:
+        """Auto-paginating generator yielding messages in an iMessage conversation."""
+        cursor: str | None = None
+        while True:
+            batch = self.list_imessage_messages(conversation_id, limit=limit, cursor=cursor)
+            if not batch:
+                break
+            yield from batch
+            if len(batch) < limit:
+                break
+            cursor = batch[-1].id
+
+    def disconnect_imessage_conversation(self, conversation_id: str) -> dict[str, Any]:
+        """Disconnects an active iMessage conversation."""
+        return self._imessage.conversations.disconnect(conversation_id)
+
 
 class AsyncAgentIdentity:
     """Asynchronous domain object representing an active agent identity."""
@@ -266,6 +347,7 @@ class AsyncAgentIdentity:
         self._mail = AsyncMailClient(http)
         self._tunnels = AsyncTunnelsClient(http, api_key, base_url)
         self._webhooks = AsyncWebhooksClient(http)
+        self._imessage = AsyncIMessageClient(http)
 
     @property
     def id(self) -> str:
@@ -488,3 +570,79 @@ class AsyncAgentIdentity:
             limit=limit,
             offset=offset,
         )
+
+    # ========================================================================
+    # iMessage Methods
+    # ========================================================================
+
+    async def get_imessage_router(self, user_phone: str | None = None) -> ImessageRouterInfo:
+        """Retrieves this agent's iMessage router number, connect command, and QR URI."""
+        return await self._imessage.get_router(agent=self.agent_handle, user_phone=user_phone)
+
+    async def send_imessage(
+        self,
+        *,
+        conversation_id: str | None = None,
+        to: str | None = None,
+        text: str | None = None,
+        media_url: str | None = None,
+    ) -> SendImessageResult:
+        """Sends an outbound iMessage from this agent identity."""
+        return await self._imessage.messages.send(
+            conversation_id=conversation_id,
+            to=to,
+            text=text,
+            media_url=media_url,
+            identity_id=self.id,
+        )
+
+    async def list_imessage_conversations(
+        self,
+        *,
+        status: Literal["connected", "disconnected"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> list[ImessageConversation]:
+        """Lists iMessage conversations belonging to this agent identity."""
+        return await self._imessage.conversations.list(
+            identity_id=self.id,
+            status=status,
+            limit=limit,
+            cursor=cursor,
+        )
+
+    async def list_imessage_messages(
+        self,
+        conversation_id: str,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> list[ImessageMessage]:
+        """Lists messages within an iMessage conversation."""
+        return await self._imessage.messages.list(
+            conversation_id,
+            limit=limit,
+            cursor=cursor,
+        )
+
+    async def iter_imessage_messages(
+        self,
+        conversation_id: str,
+        *,
+        limit: int = 50,
+    ) -> AsyncIterator[ImessageMessage]:
+        """Auto-paginating async generator yielding messages in an iMessage conversation."""
+        cursor: str | None = None
+        while True:
+            batch = await self.list_imessage_messages(conversation_id, limit=limit, cursor=cursor)
+            if not batch:
+                break
+            for msg in batch:
+                yield msg
+            if len(batch) < limit:
+                break
+            cursor = batch[-1].id
+
+    async def disconnect_imessage_conversation(self, conversation_id: str) -> dict[str, Any]:
+        """Disconnects an active iMessage conversation."""
+        return await self._imessage.conversations.disconnect(conversation_id)
