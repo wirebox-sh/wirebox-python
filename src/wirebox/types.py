@@ -329,6 +329,8 @@ WebhookEventType = Literal[
     "message.delivered",
     "message.bounced",
     "message.failed",
+    "imessage.connected",
+    "imessage.disconnected",
     "imessage.received",
     "imessage.sent",
     "imessage.delivered",
