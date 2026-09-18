@@ -13,6 +13,7 @@ from urllib.parse import quote
 from wirebox._http import AsyncHttpTransport, SyncHttpTransport
 from wirebox.imessage import AsyncIMessageClient, IMessageClient
 from wirebox.mail import AsyncMailClient, MailClient
+from wirebox.phone import AsyncPhoneClient, PhoneClient
 from wirebox.tunnels import AsyncTunnelsClient, TunnelsClient, TunnelSession
 from wirebox.types import (
     EmailMessage,
@@ -21,8 +22,11 @@ from wirebox.types import (
     ImessageConversation,
     ImessageMessage,
     ImessageRouterInfo,
+    ListPhoneMessagesResult,
     MailboxSummary,
     MessageSummary,
+    PhoneMessage,
+    PhoneNumber,
     SendEmailAttachment,
     SendEmailResult,
     SendImessageResult,
@@ -44,6 +48,7 @@ class AgentIdentity:
         self._tunnels = TunnelsClient(http)
         self._webhooks = WebhooksClient(http)
         self._imessage = IMessageClient(http)
+        self._phone = PhoneClient(http)
 
     @property
     def id(self) -> str:
@@ -329,6 +334,36 @@ class AgentIdentity:
         """Disconnects an active iMessage conversation."""
         return self._imessage.conversations.disconnect(conversation_id)
 
+    def provision_phone_number(
+        self,
+        *,
+        country_code: str = "US",
+        type: str = "local",
+        region: str | None = None,
+        area_code: str | None = None,
+    ) -> PhoneNumber:
+        """Provisions a carrier phone number bound to this agent identity."""
+        return self._phone.numbers.provision(
+            self.agent_handle,
+            country_code=country_code,
+            type=type,
+            region=region,
+            area_code=area_code,
+        )
+
+    def get_phone_number(self) -> PhoneNumber:
+        """Retrieves this agent identity's carrier phone number details."""
+        return self._phone.numbers.get(self.agent_handle)
+
+    def release_phone_number(self) -> None:
+        """Releases this agent identity's phone number back to the carrier."""
+        self._phone.numbers.release(self.agent_handle)
+
+    @property
+    def phone(self) -> _AgentPhoneScope:
+        """Scoped phone and SMS operations for this agent identity."""
+        return _AgentPhoneScope(self.agent_handle, self._phone)
+
 
 class AsyncAgentIdentity:
     """Asynchronous domain object representing an active agent identity."""
@@ -348,6 +383,7 @@ class AsyncAgentIdentity:
         self._tunnels = AsyncTunnelsClient(http, api_key, base_url)
         self._webhooks = AsyncWebhooksClient(http)
         self._imessage = AsyncIMessageClient(http)
+        self._phone = AsyncPhoneClient(http)
 
     @property
     def id(self) -> str:
@@ -646,3 +682,99 @@ class AsyncAgentIdentity:
     async def disconnect_imessage_conversation(self, conversation_id: str) -> dict[str, Any]:
         """Disconnects an active iMessage conversation."""
         return await self._imessage.conversations.disconnect(conversation_id)
+
+    async def provision_phone_number(
+        self,
+        *,
+        country_code: str = "US",
+        type: str = "local",
+        region: str | None = None,
+        area_code: str | None = None,
+    ) -> PhoneNumber:
+        """Provisions a carrier phone number bound to this agent identity."""
+        return await self._phone.numbers.provision(
+            self.agent_handle,
+            country_code=country_code,
+            type=type,
+            region=region,
+            area_code=area_code,
+        )
+
+    async def get_phone_number(self) -> PhoneNumber:
+        """Retrieves this agent identity's carrier phone number details."""
+        return await self._phone.numbers.get(self.agent_handle)
+
+    async def release_phone_number(self) -> None:
+        """Releases this agent identity's phone number back to the carrier."""
+        await self._phone.numbers.release(self.agent_handle)
+
+    @property
+    def phone(self) -> _AsyncAgentPhoneScope:
+        """Scoped phone and SMS operations for this agent identity."""
+        return _AsyncAgentPhoneScope(self.agent_handle, self._phone)
+
+
+class _AgentPhoneScope:
+    """Synchronous scoped SMS operations for a single agent identity."""
+
+    def __init__(self, handle: str, phone: PhoneClient) -> None:
+        self._handle = handle
+        self._phone = phone
+
+    def list_messages(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        is_read: bool | None = None,
+        from_number: str | None = None,
+    ) -> ListPhoneMessagesResult:
+        """Lists SMS/MMS messages received by this agent identity."""
+        return self._phone.messages.list(
+            self._handle,
+            limit=limit,
+            cursor=cursor,
+            is_read=is_read,
+            from_number=from_number,
+        )
+
+    def get_message(self, message_id: str) -> PhoneMessage:
+        """Retrieves a single SMS/MMS message received by this agent."""
+        return self._phone.messages.get(self._handle, message_id)
+
+    def mark_message_read(self, message_id: str) -> PhoneMessage:
+        """Marks an SMS/MMS message as read."""
+        return self._phone.messages.mark_read(self._handle, message_id)
+
+
+class _AsyncAgentPhoneScope:
+    """Asynchronous scoped SMS operations for a single agent identity."""
+
+    def __init__(self, handle: str, phone: AsyncPhoneClient) -> None:
+        self._handle = handle
+        self._phone = phone
+
+    async def list_messages(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        is_read: bool | None = None,
+        from_number: str | None = None,
+    ) -> ListPhoneMessagesResult:
+        """Lists SMS/MMS messages received by this agent identity."""
+        return await self._phone.messages.list(
+            self._handle,
+            limit=limit,
+            cursor=cursor,
+            is_read=is_read,
+            from_number=from_number,
+        )
+
+    async def get_message(self, message_id: str) -> PhoneMessage:
+        """Retrieves a single SMS/MMS message received by this agent."""
+        return await self._phone.messages.get(self._handle, message_id)
+
+    async def mark_message_read(self, message_id: str) -> PhoneMessage:
+        """Marks an SMS/MMS message as read."""
+        return await self._phone.messages.mark_read(self._handle, message_id)

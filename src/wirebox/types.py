@@ -324,17 +324,25 @@ class Tunnel:
 # ============================================================================
 
 WebhookEventType = Literal[
-    "message.received",
-    "message.sent",
-    "message.delivered",
-    "message.bounced",
-    "message.failed",
+    # Email Events
+    "email.received",
+    "email.sent",
+    "email.delivered",
+    "email.bounced",
+    "email.failed",
+    # SMS Events
+    "sms.received",
+    "sms.sent",
+    "sms.delivered",
+    "sms.failed",
+    # iMessage Events
     "imessage.connected",
     "imessage.disconnected",
     "imessage.received",
     "imessage.sent",
     "imessage.delivered",
     "imessage.failed",
+    # System Events
     "test.ping",
     "*",
     str,
@@ -652,3 +660,161 @@ class SendImessageResult:
             created_at=str(data.get("created_at", "")),
         )
 
+
+# ============================================================================
+# Phone & SMS Types
+# ============================================================================
+
+
+@dataclass(frozen=True)
+class PhoneNumberCapabilities:
+    """Supported carrier capabilities for a phone number."""
+
+    sms: bool = True
+    mms: bool = False
+    voice: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> PhoneNumberCapabilities:
+        if not data:
+            return cls()
+        return cls(
+            sms=bool(data.get("sms", True)),
+            mms=bool(data.get("mms", False)),
+            voice=bool(data.get("voice", False)),
+        )
+
+
+@dataclass(frozen=True)
+class PhoneNumber:
+    """A carrier phone number bound to an agent identity."""
+
+    id: str
+    phone_number: str
+    country_code: str
+    type: str
+    region: str | None
+    agent_handle: str
+    agent_identity_id: str
+    status: str
+    sms_status: str
+    sms_error_code: str | None
+    sms_error_detail: str | None
+    sms_ready_at: str | None
+    capabilities: PhoneNumberCapabilities
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PhoneNumber:
+        return cls(
+            id=str(data.get("id", "")),
+            phone_number=str(data.get("phone_number", "")),
+            country_code=str(data.get("country_code", "US")),
+            type=str(data.get("type", "local")),
+            region=data.get("region"),
+            agent_handle=str(data.get("agent_handle", "")),
+            agent_identity_id=str(data.get("agent_identity_id", "")),
+            status=str(data.get("status", "active")),
+            sms_status=str(data.get("sms_status", "ready")),
+            sms_error_code=data.get("sms_error_code"),
+            sms_error_detail=data.get("sms_error_detail"),
+            sms_ready_at=data.get("sms_ready_at"),
+            capabilities=PhoneNumberCapabilities.from_dict(data.get("capabilities")),
+            created_at=str(data.get("created_at", "")),
+            updated_at=str(data.get("updated_at", "")),
+        )
+
+
+@dataclass(frozen=True)
+class PhoneMediaItem:
+    """MMS media attachment item with signed download URL."""
+
+    content_type: str
+    size_bytes: int
+    url: str | None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PhoneMediaItem:
+        return cls(
+            content_type=str(data.get("content_type", "")),
+            size_bytes=int(data.get("size_bytes", 0)),
+            url=data.get("url"),
+        )
+
+
+@dataclass(frozen=True)
+class PhoneMessage:
+    """An SMS or MMS message received on a carrier phone number."""
+
+    id: str
+    phone_number: str
+    agent_handle: str
+    direction: str
+    type: str
+    from_number: str
+    to_numbers: list[str]
+    text: str
+    media: list[PhoneMediaItem] | None
+    is_read: bool
+    segments: int
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PhoneMessage:
+        media_raw = data.get("media")
+        media = (
+            [PhoneMediaItem.from_dict(m) for m in media_raw]
+            if isinstance(media_raw, list)
+            else None
+        )
+        return cls(
+            id=str(data.get("id", "")),
+            phone_number=str(data.get("phone_number", "")),
+            agent_handle=str(data.get("agent_handle", "")),
+            direction=str(data.get("direction", "inbound")),
+            type=str(data.get("type", "sms")),
+            from_number=str(data.get("from_number", "")),
+            to_numbers=list(data.get("to_numbers", [])),
+            text=str(data.get("text", "")),
+            media=media,
+            is_read=bool(data.get("is_read", False)),
+            segments=int(data.get("segments", 1)),
+            created_at=str(data.get("created_at", "")),
+        )
+
+
+@dataclass(frozen=True)
+class ListPhoneNumbersResult:
+    """Paginated list of carrier phone numbers."""
+
+    numbers: list[PhoneNumber]
+    next_cursor: str | None
+    has_more: bool
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ListPhoneNumbersResult:
+        items = [PhoneNumber.from_dict(n) for n in data.get("numbers", [])]
+        return cls(
+            numbers=items,
+            next_cursor=data.get("next_cursor"),
+            has_more=bool(data.get("has_more", False)),
+        )
+
+
+@dataclass(frozen=True)
+class ListPhoneMessagesResult:
+    """Paginated list of SMS/MMS messages."""
+
+    messages: list[PhoneMessage]
+    next_cursor: str | None
+    has_more: bool
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ListPhoneMessagesResult:
+        items = [PhoneMessage.from_dict(m) for m in data.get("messages", [])]
+        return cls(
+            messages=items,
+            next_cursor=data.get("next_cursor"),
+            has_more=bool(data.get("has_more", False)),
+        )

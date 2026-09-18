@@ -15,6 +15,7 @@ from wirebox._http import DEFAULT_BASE_URL, DEFAULT_TIMEOUT_SECONDS, AsyncHttpTr
 from wirebox.identity import AsyncAgentIdentity
 from wirebox.imessage import AsyncIMessageClient
 from wirebox.mail import AsyncMailClient
+from wirebox.phone import AsyncPhoneClient
 from wirebox.tunnels import AsyncTunnelsClient
 from wirebox.types import IdentityData, WhoamiResult
 from wirebox.webhooks import AsyncWebhooksClient
@@ -55,6 +56,7 @@ class AsyncWirebox:
         self.tunnels = AsyncTunnelsClient(self._transport, resolved_key, resolved_url)
         self.webhooks = AsyncWebhooksClient(self._transport)
         self.imessage = AsyncIMessageClient(self._transport)
+        self.phone = AsyncPhoneClient(self._transport)
 
     async def create_identity(
         self,
