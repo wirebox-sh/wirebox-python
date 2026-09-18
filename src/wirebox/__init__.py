@@ -20,6 +20,7 @@ from wirebox.exceptions import (
 )
 from wirebox.identity import AgentIdentity, AsyncAgentIdentity
 from wirebox.imessage import AsyncIMessageClient, IMessageClient
+from wirebox.phone import AsyncPhoneClient, PhoneClient
 from wirebox.tunnels import TunnelSession
 from wirebox.types import (
     EmailMessage,
@@ -29,9 +30,15 @@ from wirebox.types import (
     ImessageConversationLastMessage,
     ImessageMessage,
     ImessageRouterInfo,
+    ListPhoneMessagesResult,
+    ListPhoneNumbersResult,
     MailboxSummary,
     MessageAttachmentSummary,
     MessageSummary,
+    PhoneMediaItem,
+    PhoneMessage,
+    PhoneNumber,
+    PhoneNumberCapabilities,
     SendEmailAttachment,
     SendEmailResult,
     SendImessageResult,
@@ -63,6 +70,8 @@ __all__ = [
     "AsyncAgentIdentity",
     "IMessageClient",
     "AsyncIMessageClient",
+    "PhoneClient",
+    "AsyncPhoneClient",
     "TunnelSession",
     "verify_webhook",
     # Exceptions
@@ -89,6 +98,12 @@ __all__ = [
     "ImessageConversation",
     "ImessageConversationLastMessage",
     "ImessageMessage",
+    "PhoneNumberCapabilities",
+    "PhoneNumber",
+    "PhoneMediaItem",
+    "PhoneMessage",
+    "ListPhoneNumbersResult",
+    "ListPhoneMessagesResult",
     "Tunnel",
     "TunnelClientTelemetry",
     "Webhook",

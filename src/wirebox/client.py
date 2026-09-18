@@ -15,6 +15,7 @@ from wirebox._http import DEFAULT_BASE_URL, DEFAULT_TIMEOUT_SECONDS, SyncHttpTra
 from wirebox.identity import AgentIdentity
 from wirebox.imessage import IMessageClient
 from wirebox.mail import MailClient
+from wirebox.phone import PhoneClient
 from wirebox.tunnels import TunnelsClient
 from wirebox.types import IdentityData, WhoamiResult
 from wirebox.webhooks import WebhooksClient
@@ -52,6 +53,7 @@ class Wirebox:
         self.tunnels = TunnelsClient(self._transport)
         self.webhooks = WebhooksClient(self._transport)
         self.imessage = IMessageClient(self._transport)
+        self.phone = PhoneClient(self._transport)
 
     def create_identity(
         self,
