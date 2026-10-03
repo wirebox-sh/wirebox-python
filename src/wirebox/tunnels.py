@@ -195,6 +195,7 @@ class AsyncTunnelsClient:
         handle_or_id: str,
         *,
         forward_to: str | int = 3000,
+        handler: Any | None = None,
         client_version: str | None = None,
     ) -> TunnelSession:
         """Establishes a live reverse-proxy tunnel connecting a local service to the agent's public URL.
@@ -202,6 +203,7 @@ class AsyncTunnelsClient:
         Args:
             handle_or_id: Agent handle (e.g. 'sales-bot' or '@sales-bot') or tunnel ID.
             forward_to: Local port (e.g. 3456) or origin URL (e.g. 'http://localhost:3456') to proxy traffic to.
+            handler: Optional in-memory callback (async or sync) accepting httpx.Request and returning httpx.Response or dict.
             client_version: Optional version tag reported in telemetry.
 
         Returns:
@@ -376,43 +378,102 @@ class AsyncTunnelsClient:
                             if k.lower() not in ("host", "connection", "upgrade", "keep-alive")
                         }
 
-                        try:
-                            resp = await local_http.request(
-                                method=method,
-                                url=path,
-                                headers=forward_headers,
-                                content=req_body,
-                            )
-                            resp_body = resp.content
-                            resp_b64 = (
-                                base64.b64encode(resp_body).decode("ascii") if resp_body else None
-                            )
+                        if handler is not None:
+                            try:
+                                req = httpx.Request(
+                                    method=method,
+                                    url=f"http://localhost{path}",
+                                    headers=forward_headers,
+                                    content=req_body,
+                                )
+                                res = handler(req)
+                                if inspect.isawaitable(res):
+                                    resp = await res
+                                else:
+                                    resp = res
 
-                            resp_headers = {k: v for k, v in resp.headers.items()}
-                            await ws.send(
-                                json.dumps(
-                                    {
-                                        "type": "http_response",
-                                        "id": req_id,
-                                        "status": resp.status_code,
-                                        "headers": resp_headers,
-                                        "body": resp_b64,
-                                    }
+                                if isinstance(resp, httpx.Response):
+                                    resp_status = resp.status_code
+                                    resp_headers = {k: v for k, v in resp.headers.items()}
+                                    resp_body = resp.content
+                                else:
+                                    resp_status = 200
+                                    resp_headers = {"content-type": "application/json"}
+                                    resp_body = (
+                                        json.dumps(resp).encode("utf-8")
+                                        if not isinstance(resp, (bytes, bytearray))
+                                        else bytes(resp)
+                                    )
+
+                                resp_b64 = (
+                                    base64.b64encode(resp_body).decode("ascii")
+                                    if resp_body
+                                    else None
                                 )
-                            )
-                        except Exception as forward_err:
-                            logger.error(
-                                f"Tunnel failed forwarding {method} {path} to local {forward_origin}: {forward_err}"
-                            )
-                            await ws.send(
-                                json.dumps(
-                                    {
-                                        "type": "http_error",
-                                        "id": req_id,
-                                        "error": f"Failed to forward request to {forward_origin}: {forward_err}",
-                                    }
+                                await ws.send(
+                                    json.dumps(
+                                        {
+                                            "type": "http_response",
+                                            "id": req_id,
+                                            "status": resp_status,
+                                            "headers": resp_headers,
+                                            "body": resp_b64,
+                                        }
+                                    )
                                 )
-                            )
+                            except Exception as forward_err:
+                                logger.error(
+                                    f"Tunnel in-memory handler failed processing {method} {path}: {forward_err}"
+                                )
+                                await ws.send(
+                                    json.dumps(
+                                        {
+                                            "type": "http_error",
+                                            "id": req_id,
+                                            "error": str(forward_err),
+                                        }
+                                    )
+                                )
+                        else:
+                            try:
+                                resp = await local_http.request(
+                                    method=method,
+                                    url=path,
+                                    headers=forward_headers,
+                                    content=req_body,
+                                )
+                                resp_body = resp.content
+                                resp_b64 = (
+                                    base64.b64encode(resp_body).decode("ascii")
+                                    if resp_body
+                                    else None
+                                )
+
+                                resp_headers = {k: v for k, v in resp.headers.items()}
+                                await ws.send(
+                                    json.dumps(
+                                        {
+                                            "type": "http_response",
+                                            "id": req_id,
+                                            "status": resp.status_code,
+                                            "headers": resp_headers,
+                                            "body": resp_b64,
+                                        }
+                                    )
+                                )
+                            except Exception as forward_err:
+                                logger.error(
+                                    f"Tunnel failed forwarding {method} {path} to local {forward_origin}: {forward_err}"
+                                )
+                                await ws.send(
+                                    json.dumps(
+                                        {
+                                            "type": "http_error",
+                                            "id": req_id,
+                                            "error": f"Failed to forward request to {forward_origin}: {forward_err}",
+                                        }
+                                    )
+                                )
             except asyncio.CancelledError:
                 pass
             except websockets.exceptions.ConnectionClosed as exc:

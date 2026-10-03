@@ -569,11 +569,13 @@ class AsyncAgentIdentity:
         self,
         *,
         forward_to: str | int = 3000,
+        handler: Any | None = None,
         client_version: str | None = None,
     ) -> TunnelSession:
         return await self._tunnels.connect(
             self.agent_handle,
             forward_to=forward_to,
+            handler=handler,
             client_version=client_version,
         )
 

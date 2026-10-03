@@ -55,6 +55,11 @@ class WireboxAPIError(WireboxError):
         self.request_id = request_id
         self.details = details
 
+    @property
+    def status_code(self) -> int:
+        """Alias for status matching HTTPX / Requests conventions."""
+        return self.status
+
 
 class AuthenticationError(WireboxAPIError):
     """Raised on HTTP 401 or 403 when the provided API key is missing, invalid, or lacks permissions."""

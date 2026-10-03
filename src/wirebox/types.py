@@ -147,14 +147,22 @@ class SendEmailResult:
 
     message_id: str
     id: str
-    status: Literal["queued", "sent", "failed"]
+    status: Literal["queued", "sent", "failed"] | str = "queued"
+    thread_id: str | None = None
+    mailbox_address: str | None = None
+    created_at: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SendEmailResult:
+        resolved_id = str(data.get("id") or data.get("message_id") or "")
+        resolved_msg_id = str(data.get("message_id") or data.get("id") or "")
         return cls(
-            message_id=str(data.get("message_id", "")),
-            id=str(data.get("id", "")),
+            message_id=resolved_msg_id,
+            id=resolved_id,
             status=data.get("status", "queued"),
+            thread_id=data.get("thread_id"),
+            mailbox_address=data.get("mailbox_address"),
+            created_at=data.get("created_at"),
         )
 
 
@@ -190,21 +198,66 @@ class MessageSummary:
     to_addresses: list[str]
     subject: str
     preview: str
-    status: Literal["queued", "sent", "delivered", "bounced", "failed"]
+    status: Literal["queued", "sent", "delivered", "bounced", "failed"] | str
     created_at: str
+    thread_id: str | None = None
+    is_read: bool = False
+    is_starred: bool = False
+    has_attachments: bool = False
+    cc_addresses: list[str] = field(default_factory=list)
+
+    @property
+    def snippet(self) -> str:
+        """Alias for preview matching Core API and CLI format."""
+        return self.preview
+
+    @property
+    def from_(self) -> str:
+        """Alias for from_address."""
+        return self.from_address
+
+    @property
+    def to(self) -> list[str]:
+        """Alias for to_addresses."""
+        return self.to_addresses
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> MessageSummary:
+        from_val = str(data.get("from_address") or data.get("from") or "")
+
+        to_raw = data.get("to_addresses") if "to_addresses" in data else data.get("to")
+        if isinstance(to_raw, list):
+            to_list = [str(x) for x in to_raw]
+        elif isinstance(to_raw, str):
+            to_list = [to_raw]
+        else:
+            to_list = []
+
+        cc_raw = data.get("cc_addresses") if "cc_addresses" in data else data.get("cc")
+        if isinstance(cc_raw, list):
+            cc_list = [str(x) for x in cc_raw]
+        elif isinstance(cc_raw, str):
+            cc_list = [cc_raw]
+        else:
+            cc_list = []
+
+        preview_val = str(data.get("preview") or data.get("snippet") or "")
+
         return cls(
             id=str(data.get("id", "")),
             mailbox_id=str(data.get("mailbox_id", "")),
             direction=data.get("direction", "inbound"),
-            from_address=str(data.get("from_address", "")),
-            to_addresses=list(data.get("to_addresses", [])),
+            from_address=from_val,
+            to_addresses=to_list,
             subject=str(data.get("subject", "")),
-            preview=str(data.get("preview", "")),
+            preview=preview_val,
             status=data.get("status", "delivered"),
             created_at=str(data.get("created_at", "")),
+            thread_id=data.get("thread_id"),
+            is_read=bool(data.get("is_read", False)),
+            is_starred=bool(data.get("is_starred", False)),
+            has_attachments=bool(data.get("has_attachments", False)),
+            cc_addresses=cc_list,
         )
 
 
@@ -224,9 +277,33 @@ class EmailMessage:
     text: str | None
     html: str | None
     attachments: list[MessageAttachmentSummary]
-    status: Literal["queued", "sent", "delivered", "bounced", "failed"]
+    status: Literal["queued", "sent", "delivered", "bounced", "failed"] | str
     created_at: str
     headers: dict[str, str] = field(default_factory=dict)
+    thread_id: str | None = None
+    in_reply_to_message_id: str | None = None
+    is_read: bool = False
+    is_starred: bool = False
+
+    @property
+    def from_(self) -> str:
+        """Alias for from_address."""
+        return self.from_address
+
+    @property
+    def to(self) -> list[str]:
+        """Alias for to_addresses."""
+        return self.to_addresses
+
+    @property
+    def cc(self) -> list[str]:
+        """Alias for cc_addresses."""
+        return self.cc_addresses
+
+    @property
+    def bcc(self) -> list[str]:
+        """Alias for bcc_addresses."""
+        return self.bcc_addresses
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EmailMessage:
@@ -235,14 +312,41 @@ class EmailMessage:
             MessageAttachmentSummary.from_dict(a) if isinstance(a, dict) else a
             for a in attachments_raw
         ]
+
+        from_val = str(data.get("from_address") or data.get("from") or "")
+
+        to_raw = data.get("to_addresses") if "to_addresses" in data else data.get("to")
+        if isinstance(to_raw, list):
+            to_list = [str(x) for x in to_raw]
+        elif isinstance(to_raw, str):
+            to_list = [to_raw]
+        else:
+            to_list = []
+
+        cc_raw = data.get("cc_addresses") if "cc_addresses" in data else data.get("cc")
+        if isinstance(cc_raw, list):
+            cc_list = [str(x) for x in cc_raw]
+        elif isinstance(cc_raw, str):
+            cc_list = [cc_raw]
+        else:
+            cc_list = []
+
+        bcc_raw = data.get("bcc_addresses") if "bcc_addresses" in data else data.get("bcc")
+        if isinstance(bcc_raw, list):
+            bcc_list = [str(x) for x in bcc_raw]
+        elif isinstance(bcc_raw, str):
+            bcc_list = [bcc_raw]
+        else:
+            bcc_list = []
+
         return cls(
             id=str(data.get("id", "")),
             mailbox_id=str(data.get("mailbox_id", "")),
             direction=data.get("direction", "inbound"),
-            from_address=str(data.get("from_address", "")),
-            to_addresses=list(data.get("to_addresses", [])),
-            cc_addresses=list(data.get("cc_addresses", [])),
-            bcc_addresses=list(data.get("bcc_addresses", [])),
+            from_address=from_val,
+            to_addresses=to_list,
+            cc_addresses=cc_list,
+            bcc_addresses=bcc_list,
             reply_to=data.get("reply_to"),
             subject=str(data.get("subject", "")),
             text=data.get("text"),
@@ -251,6 +355,10 @@ class EmailMessage:
             status=data.get("status", "delivered"),
             created_at=str(data.get("created_at", "")),
             headers=dict(data.get("headers", {})),
+            thread_id=data.get("thread_id"),
+            in_reply_to_message_id=data.get("in_reply_to_message_id"),
+            is_read=bool(data.get("is_read", False)),
+            is_starred=bool(data.get("is_starred", False)),
         )
 
 
@@ -502,27 +610,104 @@ class WhoamiApiKey:
 
 
 @dataclass(frozen=True)
-class WhoamiResult:
-    """Introspection payload describing the active credentials."""
+class WhoamiAuth:
+    """Authentication and actor context returned by /v1/me."""
 
-    authenticated: bool
-    type: Literal["api_key", "session", "anonymous"]
-    organization: WhoamiOrganization | None = None
+    type: Literal["api_key", "jwt"] | str
+    actor_id: str
+    scoped_identity_id: str | None = None
+    scopes: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> WhoamiAuth:
+        return cls(
+            type=str(data.get("type", "api_key")),
+            actor_id=str(data.get("actor_id", "")),
+            scoped_identity_id=data.get("scoped_identity_id"),
+            scopes=list(data.get("scopes", [])),
+        )
+
+
+@dataclass(frozen=True)
+class WhoamiUsage:
+    """Usage limits and current counts returned by /v1/me."""
+
+    agents_count: int = 0
+    agents_limit: int = 0
+    webhooks_count: int = 0
+    webhooks_limit: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> WhoamiUsage:
+        return cls(
+            agents_count=int(data.get("agents_count", 0)),
+            agents_limit=int(data.get("agents_limit", 0)),
+            webhooks_count=int(data.get("webhooks_count", 0)),
+            webhooks_limit=int(data.get("webhooks_limit", 0)),
+        )
+
+
+@dataclass(frozen=True)
+class WhoamiResult:
+    """Introspection payload describing the active credentials and organization context."""
+
+    organization: WhoamiOrganization
+    auth: WhoamiAuth
+    usage: WhoamiUsage = field(default_factory=lambda: WhoamiUsage())
     api_key: WhoamiApiKey | None = None
-    agent_identity_id: str | None = None
+
+    @property
+    def authenticated(self) -> bool:
+        return bool(self.organization and self.organization.id)
+
+    @property
+    def type(self) -> str:
+        return str(self.auth.type)
+
+    @property
+    def org_id(self) -> str:
+        return self.organization.id
+
+    @property
+    def actor_id(self) -> str:
+        return self.auth.actor_id
+
+    @property
+    def scoped_identity_id(self) -> str | None:
+        return self.auth.scoped_identity_id
+
+    @property
+    def agent_identity_id(self) -> str | None:
+        return self.auth.scoped_identity_id
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> WhoamiResult:
-        org_raw = data.get("organization")
+        org_raw = data.get("organization") or {}
+        org = WhoamiOrganization.from_dict(org_raw) if isinstance(org_raw, dict) else org_raw
+
+        auth_raw = data.get("auth") or {}
+        if not auth_raw and "api_key" in data and isinstance(data["api_key"], dict):
+            k = data["api_key"]
+            auth = WhoamiAuth(
+                type=str(data.get("type", "api_key")),
+                actor_id=str(k.get("id", "")),
+                scoped_identity_id=data.get("agent_identity_id"),
+                scopes=[],
+            )
+        else:
+            auth = WhoamiAuth.from_dict(auth_raw) if isinstance(auth_raw, dict) else auth_raw
+
+        usage_raw = data.get("usage") or {}
+        usage = WhoamiUsage.from_dict(usage_raw) if isinstance(usage_raw, dict) else usage_raw
+
         api_key_raw = data.get("api_key")
+        api_key = WhoamiApiKey.from_dict(api_key_raw) if isinstance(api_key_raw, dict) else None
+
         return cls(
-            authenticated=bool(data.get("authenticated", False)),
-            type=data.get("type", "anonymous"),
-            organization=WhoamiOrganization.from_dict(org_raw)
-            if isinstance(org_raw, dict)
-            else None,
-            api_key=WhoamiApiKey.from_dict(api_key_raw) if isinstance(api_key_raw, dict) else None,
-            agent_identity_id=data.get("agent_identity_id"),
+            organization=org,
+            auth=auth,
+            usage=usage,
+            api_key=api_key,
         )
 
 

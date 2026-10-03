@@ -51,8 +51,10 @@ from wirebox.types import (
     WebhookStatus,
     WebhookTestResult,
     WhoamiApiKey,
+    WhoamiAuth,
     WhoamiOrganization,
     WhoamiResult,
+    WhoamiUsage,
 )
 from wirebox.verify_webhook import verify_webhook
 
@@ -114,5 +116,7 @@ __all__ = [
     "WebhookStatus",
     "WhoamiOrganization",
     "WhoamiApiKey",
+    "WhoamiAuth",
+    "WhoamiUsage",
     "WhoamiResult",
 ]

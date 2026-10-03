@@ -5,13 +5,14 @@ Main synchronous entry point for interacting with the Wirebox Edge Core API.
 
 from __future__ import annotations
 
-import os
 from typing import Any, Literal
 from urllib.parse import quote
 
 import httpx
 
-from wirebox._http import DEFAULT_BASE_URL, DEFAULT_TIMEOUT_SECONDS, SyncHttpTransport
+from wirebox._config import resolve_client_settings
+from wirebox._http import DEFAULT_TIMEOUT_SECONDS, SyncHttpTransport
+from wirebox.exceptions import NotFoundError
 from wirebox.identity import AgentIdentity
 from wirebox.imessage import IMessageClient
 from wirebox.mail import MailClient
@@ -26,7 +27,7 @@ class Wirebox:
 
     Example:
         >>> from wirebox import Wirebox
-        >>> client = Wirebox(api_key="wb_live_...")
+        >>> client = Wirebox()  # Automatically reads from ~/.wirebox/credentials or ~/.wirebox/config
         >>> agent = client.create_identity("sales-bot", display_name="Sales Bot")
         >>> agent.send_email(to="customer@example.com", subject="Hi", text="Hello!")
     """
@@ -39,8 +40,13 @@ class Wirebox:
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         http_client: httpx.Client | None = None,
     ) -> None:
-        resolved_key = api_key or os.environ.get("WIREBOX_API_KEY")
-        resolved_url = base_url or os.environ.get("WIREBOX_BASE_URL") or DEFAULT_BASE_URL
+        resolved_key, resolved_url = resolve_client_settings(
+            api_key=api_key,
+            base_url=base_url,
+        )
+
+        self._api_key = resolved_key
+        self._base_url = resolved_url
 
         self._transport = SyncHttpTransport(
             api_key=resolved_key,
@@ -74,11 +80,38 @@ class Wirebox:
         data = self._transport.post("/v1/identities", json=payload)
         return AgentIdentity(IdentityData.from_dict(data), self._transport)
 
-    def get_identity(self, handle_or_id: str) -> AgentIdentity:
-        """Retrieves an existing agent identity by handle or ID."""
-        clean_handle = handle_or_id.strip().lstrip("@").lower()
-        data = self._transport.get(f"/v1/identities/{quote(clean_handle)}")
-        return AgentIdentity(IdentityData.from_dict(data), self._transport)
+    def get_identity(self, handle_or_id: str | None = None) -> AgentIdentity:
+        """Retrieves an existing agent identity by handle.
+
+        If handle_or_id is omitted, returns the caller's scoped identity or the primary identity.
+        """
+        if handle_or_id:
+            clean = handle_or_id.strip().lstrip("@").lower()
+            if not clean.startswith("agt_"):
+                data = self._transport.get(f"/v1/identities/{quote(clean)}")
+                return AgentIdentity(IdentityData.from_dict(data), self._transport)
+
+        # Handle omitted or starts with agt_: query /v1/identities
+        all_agents = self.list_identities()
+        if not all_agents:
+            raise NotFoundError(
+                404,
+                "identity_not_found",
+                "No agent identities found in this organization.",
+            )
+
+        if handle_or_id:
+            clean = handle_or_id.strip().lstrip("@").lower()
+            for ag in all_agents:
+                if ag.id.lower() == clean or ag.agent_handle.lower() == clean:
+                    return ag
+            raise NotFoundError(
+                404,
+                "identity_not_found",
+                f"Identity '{handle_or_id}' not found.",
+            )
+
+        return all_agents[0]
 
     def list_identities(
         self,
@@ -106,9 +139,13 @@ class Wirebox:
         return [AgentIdentity(IdentityData.from_dict(item), self._transport) for item in raw_items]
 
     def whoami(self) -> WhoamiResult:
-        """Inspects the active API key and organization authentication context."""
-        data = self._transport.get("/v1/whoami")
+        """Inspects the active API key and organization authentication context. Maps to GET /v1/me."""
+        data = self._transport.get("/v1/me")
         return WhoamiResult.from_dict(data)
+
+    def me(self) -> WhoamiResult:
+        """Alias for whoami()."""
+        return self.whoami()
 
     def close(self) -> None:
         """Closes underlying HTTP connections."""

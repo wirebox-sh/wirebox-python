@@ -5,13 +5,14 @@ Main asynchronous entry point for interacting with the Wirebox Edge Core API.
 
 from __future__ import annotations
 
-import os
 from typing import Any, Literal
 from urllib.parse import quote
 
 import httpx
 
-from wirebox._http import DEFAULT_BASE_URL, DEFAULT_TIMEOUT_SECONDS, AsyncHttpTransport
+from wirebox._config import resolve_client_settings
+from wirebox._http import DEFAULT_TIMEOUT_SECONDS, AsyncHttpTransport
+from wirebox.exceptions import NotFoundError
 from wirebox.identity import AsyncAgentIdentity
 from wirebox.imessage import AsyncIMessageClient
 from wirebox.mail import AsyncMailClient
@@ -26,7 +27,7 @@ class AsyncWirebox:
 
     Example:
         >>> from wirebox import AsyncWirebox
-        >>> async with AsyncWirebox(api_key="wb_live_...") as client:
+        >>> async with AsyncWirebox() as client:  # Automatically reads from ~/.wirebox/credentials or ~/.wirebox/config
         ...     agent = await client.create_identity("sales-bot", display_name="Sales Bot")
         ...     await agent.send_email(to="customer@example.com", subject="Hi", text="Hello!")
     """
@@ -39,8 +40,10 @@ class AsyncWirebox:
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
-        resolved_key = api_key or os.environ.get("WIREBOX_API_KEY")
-        resolved_url = base_url or os.environ.get("WIREBOX_BASE_URL") or DEFAULT_BASE_URL
+        resolved_key, resolved_url = resolve_client_settings(
+            api_key=api_key,
+            base_url=base_url,
+        )
 
         self._api_key = resolved_key
         self._base_url = resolved_url
@@ -82,16 +85,43 @@ class AsyncWirebox:
             self._base_url,
         )
 
-    async def get_identity(self, handle_or_id: str) -> AsyncAgentIdentity:
-        """Retrieves an existing agent identity by handle or ID."""
-        clean_handle = handle_or_id.strip().lstrip("@").lower()
-        data = await self._transport.get(f"/v1/identities/{quote(clean_handle)}")
-        return AsyncAgentIdentity(
-            IdentityData.from_dict(data),
-            self._transport,
-            self._api_key,
-            self._base_url,
-        )
+    async def get_identity(self, handle_or_id: str | None = None) -> AsyncAgentIdentity:
+        """Retrieves an existing agent identity by handle.
+
+        If handle_or_id is omitted, returns the caller's scoped identity or the primary identity.
+        """
+        if handle_or_id:
+            clean = handle_or_id.strip().lstrip("@").lower()
+            if not clean.startswith("agt_"):
+                data = await self._transport.get(f"/v1/identities/{quote(clean)}")
+                return AsyncAgentIdentity(
+                    IdentityData.from_dict(data),
+                    self._transport,
+                    self._api_key,
+                    self._base_url,
+                )
+
+        # Handle omitted or starts with agt_: query /v1/identities
+        all_agents = await self.list_identities()
+        if not all_agents:
+            raise NotFoundError(
+                404,
+                "identity_not_found",
+                "No agent identities found in this organization.",
+            )
+
+        if handle_or_id:
+            clean = handle_or_id.strip().lstrip("@").lower()
+            for ag in all_agents:
+                if ag.id.lower() == clean or ag.agent_handle.lower() == clean:
+                    return ag
+            raise NotFoundError(
+                404,
+                "identity_not_found",
+                f"Identity '{handle_or_id}' not found.",
+            )
+
+        return all_agents[0]
 
     async def list_identities(
         self,
@@ -127,9 +157,13 @@ class AsyncWirebox:
         ]
 
     async def whoami(self) -> WhoamiResult:
-        """Inspects the active API key and organization authentication context."""
-        data = await self._transport.get("/v1/whoami")
+        """Inspects the active API key and organization authentication context. Maps to GET /v1/me."""
+        data = await self._transport.get("/v1/me")
         return WhoamiResult.from_dict(data)
+
+    async def me(self) -> WhoamiResult:
+        """Alias for whoami()."""
+        return await self.whoami()
 
     async def aclose(self) -> None:
         """Closes underlying HTTP connections."""

@@ -35,7 +35,7 @@ async def test_async_client_lifecycle():
                 },
             )
 
-        if method == "GET" and url_path == "/v1/whoami":
+        if method == "GET" and url_path in ("/v1/me", "/v1/whoami"):
             return httpx.Response(
                 200,
                 json={

@@ -1,5 +1,8 @@
 from wirebox.types import (
+    EmailMessage,
     IdentityData,
+    MessageSummary,
+    SendEmailResult,
     Tunnel,
     WebhookCreateResult,
 )
@@ -120,3 +123,73 @@ def test_webhook_create_result_from_dict():
     assert wh.id == "whk_1"
     assert wh.secret == "whsec_super_secret"
     assert wh.events == ["message.received"]
+
+
+def test_send_email_result_from_core_api_format():
+    # Core API returns { id: "msg_123", thread_id: "thr_456" }
+    raw = {
+        "id": "msg_123",
+        "thread_id": "thr_456",
+    }
+    result = SendEmailResult.from_dict(raw)
+    assert result.id == "msg_123"
+    assert result.message_id == "msg_123"
+    assert result.thread_id == "thr_456"
+    assert result.status == "queued"
+
+
+def test_message_summary_from_core_api_format():
+    # Core API GET /messages returns { from, to, snippet, thread_id, is_read, ... }
+    raw = {
+        "id": "msg_abc",
+        "thread_id": "thr_xyz",
+        "direction": "inbound",
+        "from": "user@example.com",
+        "to": ["agent@wireboxmail.com"],
+        "subject": "Inquiry regarding pricing",
+        "snippet": "Can you share the plan options?",
+        "is_read": False,
+        "is_starred": True,
+        "has_attachments": False,
+        "created_at": "2026-10-03T10:00:00Z",
+    }
+    summary = MessageSummary.from_dict(raw)
+    assert summary.id == "msg_abc"
+    assert summary.thread_id == "thr_xyz"
+    assert summary.from_address == "user@example.com"
+    assert summary.from_ == "user@example.com"
+    assert summary.to_addresses == ["agent@wireboxmail.com"]
+    assert summary.to == ["agent@wireboxmail.com"]
+    assert summary.preview == "Can you share the plan options?"
+    assert summary.snippet == "Can you share the plan options?"
+    assert summary.is_read is False
+    assert summary.is_starred is True
+
+
+def test_email_message_from_core_api_format():
+    raw = {
+        "id": "msg_full",
+        "mailbox_id": "mbx_1",
+        "thread_id": "thr_1",
+        "direction": "inbound",
+        "from": "supervisor@example.com",
+        "to": ["agent@wireboxmail.com"],
+        "cc": ["manager@example.com"],
+        "bcc": [],
+        "subject": "Approval request",
+        "text": "Approved to proceed.",
+        "html": "<p>Approved to proceed.</p>",
+        "attachments": [],
+        "status": "delivered",
+        "created_at": "2026-10-03T10:00:00Z",
+    }
+    msg = EmailMessage.from_dict(raw)
+    assert msg.id == "msg_full"
+    assert msg.thread_id == "thr_1"
+    assert msg.from_address == "supervisor@example.com"
+    assert msg.from_ == "supervisor@example.com"
+    assert msg.to_addresses == ["agent@wireboxmail.com"]
+    assert msg.to == ["agent@wireboxmail.com"]
+    assert msg.cc_addresses == ["manager@example.com"]
+    assert msg.cc == ["manager@example.com"]
+    assert msg.text == "Approved to proceed."
