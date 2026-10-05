@@ -16,6 +16,7 @@ from wirebox.exceptions import NotFoundError
 from wirebox.identity import AsyncAgentIdentity
 from wirebox.imessage import AsyncIMessageClient
 from wirebox.mail import AsyncMailClient
+from wirebox.mail_rules import AsyncMailRulesClient
 from wirebox.phone import AsyncPhoneClient
 from wirebox.tunnels import AsyncTunnelsClient
 from wirebox.types import IdentityData, WhoamiResult
@@ -56,6 +57,7 @@ class AsyncWirebox:
         )
 
         self.mail = AsyncMailClient(self._transport)
+        self.mail_rules = AsyncMailRulesClient(self._transport)
         self.tunnels = AsyncTunnelsClient(self._transport, resolved_key, resolved_url)
         self.webhooks = AsyncWebhooksClient(self._transport)
         self.imessage = AsyncIMessageClient(self._transport)

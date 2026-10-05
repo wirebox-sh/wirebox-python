@@ -6,6 +6,7 @@ and webhook subscriptions into a unified, object-oriented domain model.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import AsyncIterator, Iterator, Mapping
 from typing import Any, Literal
 from urllib.parse import quote
@@ -13,6 +14,13 @@ from urllib.parse import quote
 from wirebox._http import AsyncHttpTransport, SyncHttpTransport
 from wirebox.imessage import AsyncIMessageClient, IMessageClient
 from wirebox.mail import AsyncMailClient, MailClient
+from wirebox.mail_rules import (
+    AsyncIdentityMailRulesClient,
+    AsyncMailRulesClient,
+    IdentityMailRulesClient,
+    MailRulesClient,
+    _resolve_modes,
+)
 from wirebox.phone import AsyncPhoneClient, PhoneClient
 from wirebox.tunnels import AsyncTunnelsClient, TunnelsClient, TunnelSession
 from wirebox.types import (
@@ -22,9 +30,12 @@ from wirebox.types import (
     ImessageConversation,
     ImessageMessage,
     ImessageRouterInfo,
+    InboundMailPolicy,
     ListPhoneMessagesResult,
     MailboxSummary,
+    MailPolicy,
     MessageSummary,
+    OutboundMailPolicy,
     PhoneMessage,
     PhoneNumber,
     SendEmailAttachment,
@@ -45,6 +56,7 @@ class AgentIdentity:
         self._data = data
         self._http = http
         self._mail = MailClient(http)
+        self._mail_rules = MailRulesClient(http)
         self._tunnels = TunnelsClient(http)
         self._webhooks = WebhooksClient(http)
         self._imessage = IMessageClient(http)
@@ -223,6 +235,47 @@ class AgentIdentity:
         return self._mail.delete_message(self.mailbox.email_address, message_id)
 
     # ------------------------------------------------------------------------
+    # Mail Rules & Security Guardrails
+    # ------------------------------------------------------------------------
+
+    @property
+    def mail_policy(self) -> MailPolicy:
+        """Current inbound and outbound mail security policy."""
+        in_mode = self._data.mail_inbound_filter_mode or self._data.mail_filter_mode
+        out_mode = self._data.mail_outbound_filter_mode or self._data.mail_filter_mode
+        return MailPolicy(
+            inbound="protected" if in_mode == "whitelist" else "open",
+            outbound="restricted" if out_mode == "whitelist" else "open",
+        )
+
+    def set_mail_policy(
+        self,
+        *,
+        inbound: InboundMailPolicy | None = None,
+        outbound: OutboundMailPolicy | None = None,
+    ) -> MailPolicy:
+        """Configures the inbound and outbound mail security policy for this agent identity."""
+        policy = self._mail_rules.set_policy(
+            self.agent_handle,
+            inbound=inbound,
+            outbound=outbound,
+        )
+        target_in, target_out = _resolve_modes(inbound, outbound)
+        kwargs: dict[str, Any] = {}
+        if target_in is not None:
+            kwargs["mail_inbound_filter_mode"] = target_in
+        if target_out is not None:
+            kwargs["mail_outbound_filter_mode"] = target_out
+        if kwargs:
+            self._data = dataclasses.replace(self._data, **kwargs)
+        return policy
+
+    @property
+    def mail_rules(self) -> IdentityMailRulesClient:
+        """Identity-scoped mail rules and security guardrails client."""
+        return IdentityMailRulesClient(self._http, self.agent_handle)
+
+    # ------------------------------------------------------------------------
     # Tunnel & Webhook Operations
     # ------------------------------------------------------------------------
 
@@ -380,6 +433,7 @@ class AsyncAgentIdentity:
         self._api_key = api_key
         self._base_url = base_url
         self._mail = AsyncMailClient(http)
+        self._mail_rules = AsyncMailRulesClient(http)
         self._tunnels = AsyncTunnelsClient(http, api_key, base_url)
         self._webhooks = AsyncWebhooksClient(http)
         self._imessage = AsyncIMessageClient(http)
@@ -557,6 +611,47 @@ class AsyncAgentIdentity:
 
     async def delete_message(self, message_id: str) -> bool:
         return await self._mail.delete_message(self.mailbox.email_address, message_id)
+
+    # ------------------------------------------------------------------------
+    # Mail Rules & Security Guardrails
+    # ------------------------------------------------------------------------
+
+    @property
+    def mail_policy(self) -> MailPolicy:
+        """Current inbound and outbound mail security policy."""
+        in_mode = self._data.mail_inbound_filter_mode or self._data.mail_filter_mode
+        out_mode = self._data.mail_outbound_filter_mode or self._data.mail_filter_mode
+        return MailPolicy(
+            inbound="protected" if in_mode == "whitelist" else "open",
+            outbound="restricted" if out_mode == "whitelist" else "open",
+        )
+
+    async def set_mail_policy(
+        self,
+        *,
+        inbound: InboundMailPolicy | None = None,
+        outbound: OutboundMailPolicy | None = None,
+    ) -> MailPolicy:
+        """Configures the inbound and outbound mail security policy for this agent identity asynchronously."""
+        policy = await self._mail_rules.set_policy(
+            self.agent_handle,
+            inbound=inbound,
+            outbound=outbound,
+        )
+        target_in, target_out = _resolve_modes(inbound, outbound)
+        kwargs: dict[str, Any] = {}
+        if target_in is not None:
+            kwargs["mail_inbound_filter_mode"] = target_in
+        if target_out is not None:
+            kwargs["mail_outbound_filter_mode"] = target_out
+        if kwargs:
+            self._data = dataclasses.replace(self._data, **kwargs)
+        return policy
+
+    @property
+    def mail_rules(self) -> AsyncIdentityMailRulesClient:
+        """Identity-scoped asynchronous mail rules and security guardrails client."""
+        return AsyncIdentityMailRulesClient(self._http, self.agent_handle)
 
     # ------------------------------------------------------------------------
     # Tunnel & Webhook Operations

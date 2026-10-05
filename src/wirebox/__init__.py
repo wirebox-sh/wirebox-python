@@ -20,9 +20,16 @@ from wirebox.exceptions import (
 )
 from wirebox.identity import AgentIdentity, AsyncAgentIdentity
 from wirebox.imessage import AsyncIMessageClient, IMessageClient
+from wirebox.mail_rules import (
+    AsyncIdentityMailRulesClient,
+    AsyncMailRulesClient,
+    IdentityMailRulesClient,
+    MailRulesClient,
+)
 from wirebox.phone import AsyncPhoneClient, PhoneClient
 from wirebox.tunnels import TunnelSession
 from wirebox.types import (
+    DeleteMailRuleResult,
     EmailMessage,
     IdentityData,
     IdentityTunnelSummary,
@@ -30,11 +37,20 @@ from wirebox.types import (
     ImessageConversationLastMessage,
     ImessageMessage,
     ImessageRouterInfo,
+    InboundMailPolicy,
+    ListMailRulesResult,
     ListPhoneMessagesResult,
     ListPhoneNumbersResult,
     MailboxSummary,
+    MailPolicy,
+    MailRule,
+    MailRuleAction,
+    MailRuleDirection,
+    MailRuleStatus,
+    MailRuleType,
     MessageAttachmentSummary,
     MessageSummary,
+    OutboundMailPolicy,
     PhoneMediaItem,
     PhoneMessage,
     PhoneNumber,
@@ -70,6 +86,10 @@ __all__ = [
     "AsyncWireboxClient",
     "AgentIdentity",
     "AsyncAgentIdentity",
+    "MailRulesClient",
+    "AsyncMailRulesClient",
+    "IdentityMailRulesClient",
+    "AsyncIdentityMailRulesClient",
     "IMessageClient",
     "AsyncIMessageClient",
     "PhoneClient",
@@ -89,6 +109,16 @@ __all__ = [
     # Types
     "IdentityData",
     "IdentityTunnelSummary",
+    "MailPolicy",
+    "InboundMailPolicy",
+    "OutboundMailPolicy",
+    "MailRule",
+    "MailRuleAction",
+    "MailRuleDirection",
+    "MailRuleStatus",
+    "MailRuleType",
+    "ListMailRulesResult",
+    "DeleteMailRuleResult",
     "MailboxSummary",
     "SendEmailAttachment",
     "SendEmailResult",

@@ -64,6 +64,9 @@ class IdentityData:
     updated_at: str
     mailboxes: list[MailboxSummary] = field(default_factory=list)
     tunnel: IdentityTunnelSummary | None = None
+    mail_filter_mode: Literal["whitelist", "blacklist"] | str | None = None
+    mail_inbound_filter_mode: Literal["whitelist", "blacklist"] | str | None = None
+    mail_outbound_filter_mode: Literal["whitelist", "blacklist"] | str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> IdentityData:
@@ -124,6 +127,9 @@ class IdentityData:
             updated_at=str(data.get("updated_at", "")),
             mailboxes=mailboxes,
             tunnel=tunnel_summary,
+            mail_filter_mode=data.get("mail_filter_mode"),
+            mail_inbound_filter_mode=data.get("mail_inbound_filter_mode"),
+            mail_outbound_filter_mode=data.get("mail_outbound_filter_mode"),
         )
 
 
@@ -1002,4 +1008,97 @@ class ListPhoneMessagesResult:
             messages=items,
             next_cursor=data.get("next_cursor"),
             has_more=bool(data.get("has_more", False)),
+        )
+
+
+# ============================================================================
+# Mail Rules & Security Guardrails Types
+# ============================================================================
+
+InboundMailPolicy = Literal["protected", "open", "allowlist", "blocklist"]
+OutboundMailPolicy = Literal["restricted", "open", "allowlist", "blocklist"]
+MailRuleDirection = Literal["inbound", "outbound", "both"]
+MailRuleAction = Literal["allow", "block"]
+MailRuleType = Literal["email", "domain"]
+MailRuleStatus = Literal["active", "paused"]
+
+
+@dataclass(frozen=True)
+class MailPolicy:
+    """Inbound prompt-injection defense and outbound data-exfiltration defense posture."""
+
+    inbound: Literal["protected", "open"]
+    outbound: Literal["restricted", "open"]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MailPolicy:
+        in_mode = data.get("mail_inbound_filter_mode") or data.get("mail_filter_mode")
+        out_mode = data.get("mail_outbound_filter_mode") or data.get("mail_filter_mode")
+        return cls(
+            inbound="protected" if in_mode == "whitelist" else "open",
+            outbound="restricted" if out_mode == "whitelist" else "open",
+        )
+
+
+@dataclass(frozen=True)
+class MailRule:
+    """An inbound or outbound email security rule scoped to an agent identity."""
+
+    id: str
+    identity_id: str
+    agent_handle: str
+    type: MailRuleType | str
+    entry: str
+    match_target: str
+    action: MailRuleAction | str
+    direction: MailRuleDirection | str
+    reason: str | None
+    status: MailRuleStatus | str
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MailRule:
+        return cls(
+            id=str(data.get("id", "")),
+            identity_id=str(data.get("identity_id", "")),
+            agent_handle=str(data.get("agent_handle", "")),
+            type=data.get("type", "email"),
+            entry=str(data.get("entry", "")),
+            match_target=str(data.get("match_target", "")),
+            action=data.get("action", "allow"),
+            direction=data.get("direction", "both"),
+            reason=data.get("reason"),
+            status=data.get("status", "active"),
+            created_at=str(data.get("created_at", "")),
+            updated_at=str(data.get("updated_at", "")),
+        )
+
+
+@dataclass(frozen=True)
+class ListMailRulesResult:
+    """Paginated collection of mail rules for an agent identity."""
+
+    rules: list[MailRule]
+    total: int
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ListMailRulesResult:
+        rules_data = data.get("rules", [])
+        rules = [MailRule.from_dict(r) if isinstance(r, dict) else r for r in rules_data]
+        return cls(rules=rules, total=int(data.get("total", len(rules))))
+
+
+@dataclass(frozen=True)
+class DeleteMailRuleResult:
+    """Result of a mail rule deletion."""
+
+    deleted: bool
+    id: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DeleteMailRuleResult:
+        return cls(
+            deleted=bool(data.get("deleted", False)),
+            id=str(data.get("id", "")),
         )
