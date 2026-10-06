@@ -24,13 +24,17 @@ from wirebox.mail_rules import (
 from wirebox.phone import AsyncPhoneClient, PhoneClient
 from wirebox.tunnels import AsyncTunnelsClient, TunnelsClient, TunnelSession
 from wirebox.types import (
+    DeleteDraftResult,
+    Draft,
     EmailMessage,
+    ForwardEmailResult,
     IdentityData,
     IdentityTunnelSummary,
     ImessageConversation,
     ImessageMessage,
     ImessageRouterInfo,
     InboundMailPolicy,
+    ListDraftsResult,
     ListPhoneMessagesResult,
     MailboxSummary,
     MailPolicy,
@@ -38,6 +42,7 @@ from wirebox.types import (
     OutboundMailPolicy,
     PhoneMessage,
     PhoneNumber,
+    SendDraftResult,
     SendEmailAttachment,
     SendEmailResult,
     SendImessageResult,
@@ -231,8 +236,183 @@ class AgentIdentity:
             attachments=attachments,
         )
 
+    def forward_email(
+        self,
+        message_id: str,
+        *,
+        to: str | list[str],
+        subject: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        forward_attachments: bool = True,
+        attachments: list[SendEmailAttachment] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> ForwardEmailResult:
+        """Forwards an email message to new recipients from this agent's mailbox."""
+        return self._mail.forward(
+            self.mailbox.email_address,
+            message_id,
+            to=to,
+            subject=subject,
+            body_text=body_text,
+            body_html=body_html,
+            text=text,
+            html=html,
+            cc=cc,
+            bcc=bcc,
+            forward_attachments=forward_attachments,
+            attachments=attachments,
+            headers=headers,
+        )
+
     def delete_message(self, message_id: str) -> bool:
         return self._mail.delete_message(self.mailbox.email_address, message_id)
+
+    # ------------------------------------------------------------------------
+    # Email Draft Operations
+    # ------------------------------------------------------------------------
+
+    def create_draft(
+        self,
+        *,
+        to: str | list[str] | None = None,
+        subject: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        in_reply_to: str | None = None,
+        reply_all: bool | None = None,
+        forward_of: str | None = None,
+        forward_attachments: bool | None = None,
+        attachments: list[SendEmailAttachment] | None = None,
+    ) -> Draft:
+        """Creates a new email draft (plain, reply, or forward)."""
+        return self._mail.create_draft(
+            self.mailbox.email_address,
+            to=to,
+            subject=subject,
+            text=text,
+            html=html,
+            body_text=body_text,
+            body_html=body_html,
+            cc=cc,
+            bcc=bcc,
+            in_reply_to=in_reply_to,
+            reply_all=reply_all,
+            forward_of=forward_of,
+            forward_attachments=forward_attachments,
+            attachments=attachments,
+        )
+
+    def list_drafts(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> ListDraftsResult:
+        """Retrieves a single paginated page of drafts in this agent's mailbox."""
+        return self._mail.list_drafts(
+            self.mailbox.email_address,
+            limit=limit,
+            offset=offset,
+        )
+
+    def iter_drafts(
+        self,
+        *,
+        page_size: int = 50,
+    ) -> Iterator[Draft]:
+        """Auto-paginating generator yielding drafts across the draft mailbox."""
+        offset = 0
+        while True:
+            page = self.list_drafts(limit=page_size, offset=offset)
+            if not page.drafts:
+                break
+            yield from page.drafts
+            offset += len(page.drafts)
+            if offset >= page.count or len(page.drafts) < page_size:
+                break
+
+    def get_draft(self, draft_id: str) -> Draft:
+        """Retrieves complete details of an email draft."""
+        return self._mail.get_draft(self.mailbox.email_address, draft_id)
+
+    def update_draft(
+        self,
+        draft_id: str,
+        *,
+        version: int | None = None,
+        to: str | list[str] | None = None,
+        subject: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        add_attachments: list[SendEmailAttachment] | None = None,
+        remove_attachments: list[str] | None = None,
+    ) -> Draft:
+        """Updates an existing email draft with delta body, recipients, or attachments."""
+        return self._mail.update_draft(
+            self.mailbox.email_address,
+            draft_id,
+            version=version,
+            to=to,
+            subject=subject,
+            text=text,
+            html=html,
+            body_text=body_text,
+            body_html=body_html,
+            cc=cc,
+            bcc=bcc,
+            add_attachments=add_attachments,
+            remove_attachments=remove_attachments,
+        )
+
+    def delete_draft(self, draft_id: str) -> DeleteDraftResult:
+        """Permanently deletes an email draft."""
+        return self._mail.delete_draft(self.mailbox.email_address, draft_id)
+
+    def send_draft(
+        self,
+        draft_id: str,
+        *,
+        version: int | None = None,
+        idempotency_key: str | None = None,
+        to: str | list[str] | None = None,
+        subject: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        attachments: list[SendEmailAttachment] | None = None,
+    ) -> SendDraftResult:
+        """Sends an email draft, converting it into a sent message."""
+        return self._mail.send_draft(
+            self.mailbox.email_address,
+            draft_id,
+            version=version,
+            idempotency_key=idempotency_key,
+            to=to,
+            subject=subject,
+            text=text,
+            html=html,
+            body_text=body_text,
+            body_html=body_html,
+            cc=cc,
+            bcc=bcc,
+            attachments=attachments,
+        )
 
     # ------------------------------------------------------------------------
     # Mail Rules & Security Guardrails
@@ -609,8 +789,184 @@ class AsyncAgentIdentity:
             attachments=attachments,
         )
 
+    async def forward_email(
+        self,
+        message_id: str,
+        *,
+        to: str | list[str],
+        subject: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        forward_attachments: bool = True,
+        attachments: list[SendEmailAttachment] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> ForwardEmailResult:
+        """Asynchronously forwards an email message to new recipients from this agent's mailbox."""
+        return await self._mail.forward(
+            self.mailbox.email_address,
+            message_id,
+            to=to,
+            subject=subject,
+            body_text=body_text,
+            body_html=body_html,
+            text=text,
+            html=html,
+            cc=cc,
+            bcc=bcc,
+            forward_attachments=forward_attachments,
+            attachments=attachments,
+            headers=headers,
+        )
+
     async def delete_message(self, message_id: str) -> bool:
         return await self._mail.delete_message(self.mailbox.email_address, message_id)
+
+    # ------------------------------------------------------------------------
+    # Email Draft Operations
+    # ------------------------------------------------------------------------
+
+    async def create_draft(
+        self,
+        *,
+        to: str | list[str] | None = None,
+        subject: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        in_reply_to: str | None = None,
+        reply_all: bool | None = None,
+        forward_of: str | None = None,
+        forward_attachments: bool | None = None,
+        attachments: list[SendEmailAttachment] | None = None,
+    ) -> Draft:
+        """Asynchronously creates a new email draft (plain, reply, or forward)."""
+        return await self._mail.create_draft(
+            self.mailbox.email_address,
+            to=to,
+            subject=subject,
+            text=text,
+            html=html,
+            body_text=body_text,
+            body_html=body_html,
+            cc=cc,
+            bcc=bcc,
+            in_reply_to=in_reply_to,
+            reply_all=reply_all,
+            forward_of=forward_of,
+            forward_attachments=forward_attachments,
+            attachments=attachments,
+        )
+
+    async def list_drafts(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> ListDraftsResult:
+        """Asynchronously retrieves a single paginated page of drafts in this agent's mailbox."""
+        return await self._mail.list_drafts(
+            self.mailbox.email_address,
+            limit=limit,
+            offset=offset,
+        )
+
+    async def iter_drafts(
+        self,
+        *,
+        page_size: int = 50,
+    ) -> AsyncIterator[Draft]:
+        """Auto-paginating async generator yielding drafts across the draft mailbox."""
+        offset = 0
+        while True:
+            page = await self.list_drafts(limit=page_size, offset=offset)
+            if not page.drafts:
+                break
+            for draft in page.drafts:
+                yield draft
+            offset += len(page.drafts)
+            if offset >= page.count or len(page.drafts) < page_size:
+                break
+
+    async def get_draft(self, draft_id: str) -> Draft:
+        """Asynchronously retrieves complete details of an email draft."""
+        return await self._mail.get_draft(self.mailbox.email_address, draft_id)
+
+    async def update_draft(
+        self,
+        draft_id: str,
+        *,
+        version: int | None = None,
+        to: str | list[str] | None = None,
+        subject: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        add_attachments: list[SendEmailAttachment] | None = None,
+        remove_attachments: list[str] | None = None,
+    ) -> Draft:
+        """Asynchronously updates an existing email draft with delta body, recipients, or attachments."""
+        return await self._mail.update_draft(
+            self.mailbox.email_address,
+            draft_id,
+            version=version,
+            to=to,
+            subject=subject,
+            text=text,
+            html=html,
+            body_text=body_text,
+            body_html=body_html,
+            cc=cc,
+            bcc=bcc,
+            add_attachments=add_attachments,
+            remove_attachments=remove_attachments,
+        )
+
+    async def delete_draft(self, draft_id: str) -> DeleteDraftResult:
+        """Asynchronously permanently deletes an email draft."""
+        return await self._mail.delete_draft(self.mailbox.email_address, draft_id)
+
+    async def send_draft(
+        self,
+        draft_id: str,
+        *,
+        version: int | None = None,
+        idempotency_key: str | None = None,
+        to: str | list[str] | None = None,
+        subject: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        cc: str | list[str] | None = None,
+        bcc: str | list[str] | None = None,
+        attachments: list[SendEmailAttachment] | None = None,
+    ) -> SendDraftResult:
+        """Asynchronously sends an email draft, converting it into a sent message."""
+        return await self._mail.send_draft(
+            self.mailbox.email_address,
+            draft_id,
+            version=version,
+            idempotency_key=idempotency_key,
+            to=to,
+            subject=subject,
+            text=text,
+            html=html,
+            body_text=body_text,
+            body_html=body_html,
+            cc=cc,
+            bcc=bcc,
+            attachments=attachments,
+        )
 
     # ------------------------------------------------------------------------
     # Mail Rules & Security Guardrails

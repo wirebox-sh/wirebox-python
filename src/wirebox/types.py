@@ -173,6 +173,23 @@ class SendEmailResult:
 
 
 @dataclass(frozen=True)
+class ForwardEmailResult:
+    """Result of forwarding an email message."""
+
+    id: str
+    thread_id: str
+    status: str = "sent"
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ForwardEmailResult:
+        return cls(
+            id=str(data.get("id") or data.get("message_id") or ""),
+            thread_id=str(data.get("thread_id") or ""),
+            status=str(data.get("status") or "sent"),
+        )
+
+
+@dataclass(frozen=True)
 class MessageAttachmentSummary:
     """Metadata summary of an email attachment."""
 
@@ -365,6 +382,161 @@ class EmailMessage:
             in_reply_to_message_id=data.get("in_reply_to_message_id"),
             is_read=bool(data.get("is_read", False)),
             is_starred=bool(data.get("is_starred", False)),
+        )
+
+
+# ============================================================================
+# Email Draft Types
+# ============================================================================
+
+
+@dataclass(frozen=True)
+class DraftAttachment:
+    """An attachment staged on an email draft."""
+
+    id: str
+    draft_id: str
+    filename: str
+    content_type: str
+    size_bytes: int
+    created_at: str
+    url: str | None = None
+    content_id: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DraftAttachment:
+        return cls(
+            id=str(data.get("id", "")),
+            draft_id=str(data.get("draft_id", "")),
+            filename=str(data.get("filename", "")),
+            content_type=str(data.get("content_type", "application/octet-stream")),
+            size_bytes=int(data.get("size_bytes", 0)),
+            created_at=str(data.get("created_at", "")),
+            url=data.get("url"),
+            content_id=data.get("content_id"),
+        )
+
+
+@dataclass(frozen=True)
+class Draft:
+    """An email draft stored in an agent identity's mailbox."""
+
+    id: str
+    mailbox_id: str
+    agent_identity_id: str
+    version: int
+    status: Literal["draft", "sending"] | str
+    to: list[str]
+    cc: list[str]
+    bcc: list[str]
+    subject: str | None
+    text: str | None
+    html: str | None
+    attachments: list[DraftAttachment]
+    created_at: str
+    updated_at: str
+    has_attachments: bool = False
+    thread_id: str | None = None
+    in_reply_to_message_id: str | None = None
+    forward_of_message_id: str | None = None
+    snippet: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Draft:
+        atts_raw = data.get("attachments", [])
+        attachments = [DraftAttachment.from_dict(a) if isinstance(a, dict) else a for a in atts_raw]
+        to_raw = data.get("to") or []
+        to_list = (
+            [str(x) for x in to_raw]
+            if isinstance(to_raw, list)
+            else ([str(to_raw)] if to_raw else [])
+        )
+        cc_raw = data.get("cc") or []
+        cc_list = (
+            [str(x) for x in cc_raw]
+            if isinstance(cc_raw, list)
+            else ([str(cc_raw)] if cc_raw else [])
+        )
+        bcc_raw = data.get("bcc") or []
+        bcc_list = (
+            [str(x) for x in bcc_raw]
+            if isinstance(bcc_raw, list)
+            else ([str(bcc_raw)] if bcc_raw else [])
+        )
+
+        return cls(
+            id=str(data.get("id", "")),
+            mailbox_id=str(data.get("mailbox_id", "")),
+            agent_identity_id=str(data.get("agent_identity_id", "")),
+            version=int(data.get("version", 1)),
+            status=data.get("status", "draft"),
+            to=to_list,
+            cc=cc_list,
+            bcc=bcc_list,
+            subject=data.get("subject"),
+            text=data.get("text"),
+            html=data.get("html"),
+            attachments=attachments,
+            has_attachments=bool(data.get("has_attachments", len(attachments) > 0)),
+            thread_id=data.get("thread_id"),
+            in_reply_to_message_id=data.get("in_reply_to_message_id"),
+            forward_of_message_id=data.get("forward_of_message_id"),
+            snippet=data.get("snippet"),
+            created_at=str(data.get("created_at", "")),
+            updated_at=str(data.get("updated_at", "")),
+        )
+
+
+@dataclass(frozen=True)
+class ListDraftsResult:
+    """Paginated collection of drafts in an agent mailbox."""
+
+    drafts: list[Draft]
+    count: int
+    limit: int
+    offset: int
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ListDraftsResult:
+        drafts_raw = data.get("drafts", [])
+        drafts = [Draft.from_dict(d) if isinstance(d, dict) else d for d in drafts_raw]
+        return cls(
+            drafts=drafts,
+            count=int(data.get("count", len(drafts))),
+            limit=int(data.get("limit", 50)),
+            offset=int(data.get("offset", 0)),
+        )
+
+
+@dataclass(frozen=True)
+class SendDraftResult:
+    """Result of dispatching an email draft."""
+
+    id: str
+    thread_id: str
+    status: Literal["sent"] | str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SendDraftResult:
+        return cls(
+            id=str(data.get("id", "")),
+            thread_id=str(data.get("thread_id", "")),
+            status=str(data.get("status", "sent")),
+        )
+
+
+@dataclass(frozen=True)
+class DeleteDraftResult:
+    """Result of draft deletion."""
+
+    id: str
+    deleted: bool
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DeleteDraftResult:
+        return cls(
+            id=str(data.get("id", "")),
+            deleted=bool(data.get("deleted", False)),
         )
 
 
