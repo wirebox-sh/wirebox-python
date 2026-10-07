@@ -211,6 +211,15 @@ class AgentIdentity:
 
     iter_emails = iter_messages
 
+    def search_messages(
+        self,
+        *,
+        q: str,
+        limit: int | None = None,
+    ) -> list[MessageSummary]:
+        """Full-text search across this agent's mailbox, ranked by relevance."""
+        return self._mail.search_messages(self.mailbox.email_address, q=q, limit=limit)
+
     def get_message(self, message_id: str) -> EmailMessage:
         return self._mail.get_message(self.mailbox.email_address, message_id)
 
@@ -763,6 +772,15 @@ class AsyncAgentIdentity:
                 break
 
     iter_emails = iter_messages
+
+    async def search_messages(
+        self,
+        *,
+        q: str,
+        limit: int | None = None,
+    ) -> list[MessageSummary]:
+        """Full-text search across this agent's mailbox, ranked by relevance."""
+        return await self._mail.search_messages(self.mailbox.email_address, q=q, limit=limit)
 
     async def get_message(self, message_id: str) -> EmailMessage:
         return await self._mail.get_message(self.mailbox.email_address, message_id)

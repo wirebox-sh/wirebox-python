@@ -292,6 +292,27 @@ class MailClient:
             messages_raw = []
         return [MessageSummary.from_dict(m) for m in messages_raw]
 
+    def search_messages(
+        self,
+        mailbox_address: str,
+        *,
+        q: str,
+        limit: int | None = None,
+    ) -> list[MessageSummary]:
+        """Full-text search across messages in a mailbox, ranked by relevance."""
+        params: dict[str, Any] = {"q": q}
+        if limit is not None:
+            params["limit"] = limit
+
+        data = self._http.get(f"/v1/mailboxes/{quote(mailbox_address)}/search", params=params)
+        if isinstance(data, dict):
+            messages_raw = data.get("items") or data.get("messages") or []
+        elif isinstance(data, list):
+            messages_raw = data
+        else:
+            messages_raw = []
+        return [MessageSummary.from_dict(m) for m in messages_raw]
+
     def get_message(self, mailbox_address: str, message_id: str) -> EmailMessage:
         data = self._http.get(
             f"/v1/mailboxes/{quote(mailbox_address)}/messages/{quote(message_id)}"
@@ -579,6 +600,29 @@ class AsyncMailClient:
         return [MessageSummary.from_dict(m) for m in messages_raw]
 
     list_emails = list_messages
+
+    async def search_messages(
+        self,
+        mailbox_address: str,
+        *,
+        q: str,
+        limit: int | None = None,
+    ) -> list[MessageSummary]:
+        """Full-text search across messages in a mailbox, ranked by relevance."""
+        params: dict[str, Any] = {"q": q}
+        if limit is not None:
+            params["limit"] = limit
+
+        data = await self._http.get(
+            f"/v1/mailboxes/{quote(mailbox_address)}/search", params=params
+        )
+        if isinstance(data, dict):
+            messages_raw = data.get("items") or data.get("messages") or []
+        elif isinstance(data, list):
+            messages_raw = data
+        else:
+            messages_raw = []
+        return [MessageSummary.from_dict(m) for m in messages_raw]
 
     async def get_message(self, mailbox_address: str, message_id: str) -> EmailMessage:
         data = await self._http.get(

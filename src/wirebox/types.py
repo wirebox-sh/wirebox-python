@@ -228,6 +228,8 @@ class MessageSummary:
     is_starred: bool = False
     has_attachments: bool = False
     cc_addresses: list[str] = field(default_factory=list)
+    highlight: str | None = None
+    highlights: dict[str, list[str]] | None = None
 
     @property
     def snippet(self) -> str:
@@ -281,6 +283,16 @@ class MessageSummary:
             is_starred=bool(data.get("is_starred", False)),
             has_attachments=bool(data.get("has_attachments", False)),
             cc_addresses=cc_list,
+            highlight=str(data["highlight"]) if data.get("highlight") is not None else None,
+            highlights=(
+                {
+                    str(key): [str(item) for item in value]
+                    for key, value in data["highlights"].items()
+                    if isinstance(value, list)
+                }
+                if isinstance(data.get("highlights"), dict)
+                else None
+            ),
         )
 
 
