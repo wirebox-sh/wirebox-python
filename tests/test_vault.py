@@ -179,3 +179,59 @@ def test_client_end_to_end():
     again.delete_secret("GitHub2")
     with pytest.raises(KeyError):
         again.get_secret("GitHub2")
+
+
+class AsyncFakeVaultTransport:
+    """Async wrapper over the in-memory fake (methods just await the sync logic)."""
+
+    def __init__(self) -> None:
+        self._s = FakeVaultTransport()
+
+    async def get(self, path: str, *, params: dict[str, Any] | None = None, **k: Any) -> Any:
+        return self._s.get(path, params=params, **k)
+
+    async def post(self, path: str, *, json: Any = None, **k: Any) -> Any:
+        return self._s.post(path, json=json, **k)
+
+    async def patch(self, path: str, *, json: Any = None, **k: Any) -> Any:
+        return self._s.patch(path, json=json, **k)
+
+    async def delete(self, path: str, **k: Any) -> Any:
+        return self._s.delete(path, **k)
+
+
+async def test_async_client_end_to_end():
+    from wirebox.vault.async_client import AsyncVaultClient
+
+    vault_api = AsyncVaultClient(AsyncFakeVaultTransport())
+    assert (await vault_api.info()).initialized is False
+
+    vk = (await vault_api.initialize()).vault_key
+    unlocked = await vault_api.unlock(vk)
+    created = await unlocked.create_secret(
+        type=VaultSecretType.LOGIN,
+        name="GitHub",
+        payload=LoginPayload(username="eva", password="hunter2", totp=TOTPConfig(secret=RFC_SECRET)),
+    )
+
+    reopened = await vault_api.unlock(vk)
+    assert reopened.get_login("github").password == "hunter2"  # name-or-id, sync accessor
+    assert reopened.get_totp_code("GitHub").code.isdigit()
+    assert len(await vault_api.list_secrets()) == 1
+
+    await reopened.update_secret(
+        "GitHub",
+        name="GH2",
+        payload=LoginPayload(username="eva", password="new", totp=TOTPConfig(secret=RFC_SECRET)),
+    )
+    again = await vault_api.unlock(vk)
+    assert again.get_login("GH2").password == "new"
+
+    await vault_api.grant_access(created.id, "agt_bot")
+    assert len(await vault_api.list_access(created.id)) == 1
+    await vault_api.revoke_access(created.id, "agt_bot")
+    assert await vault_api.list_access(created.id) == []
+
+    await again.delete_secret("GH2")
+    with pytest.raises(KeyError):
+        again.get_secret("GH2")

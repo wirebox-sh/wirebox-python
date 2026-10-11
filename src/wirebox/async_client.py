@@ -20,6 +20,7 @@ from wirebox.mail_rules import AsyncMailRulesClient
 from wirebox.phone import AsyncPhoneClient
 from wirebox.tunnels import AsyncTunnelsClient
 from wirebox.types import IdentityData, WhoamiResult
+from wirebox.vault.async_client import AsyncVaultClient
 from wirebox.webhooks import AsyncWebhooksClient
 
 
@@ -62,6 +63,7 @@ class AsyncWirebox:
         self.webhooks = AsyncWebhooksClient(self._transport)
         self.imessage = AsyncIMessageClient(self._transport)
         self.phone = AsyncPhoneClient(self._transport)
+        self.vault = AsyncVaultClient(self._transport)
 
     async def create_identity(
         self,
