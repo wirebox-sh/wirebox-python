@@ -235,3 +235,16 @@ async def test_async_client_end_to_end():
     await again.delete_secret("GH2")
     with pytest.raises(KeyError):
         again.get_secret("GH2")
+
+
+def test_grant_access_by_secret_name():
+    vault_api = VaultClient(FakeVaultTransport())
+    vk = vault_api.initialize().vault_key
+    v = vault_api.unlock(vk)
+    v.create_secret(type=VaultSecretType.OTHER, name="Note", payload=OtherPayload(data="x"))
+
+    grant = vault_api.grant_access("Note", "agt_1")  # by secret name
+    assert grant.identity_id == "agt_1"
+    assert len(vault_api.list_access("note")) == 1  # case-insensitive by name
+    vault_api.revoke_access("Note", "agt_1")  # by name
+    assert vault_api.list_access("Note") == []

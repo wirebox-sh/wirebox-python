@@ -105,20 +105,33 @@ class AsyncVaultClient:
         res = await self._http.get(f"{_BASE}/secrets", params=params)
         return [VaultSecretSummary.from_wire(s) for s in res.get("secrets", [])]
 
-    async def list_access(self, secret_id: str) -> list[VaultAccessGrant]:
-        res = await self._http.get(f"{_BASE}/secrets/{secret_id}/access")
+    async def _resolve_secret_id(self, name_or_id: str) -> str:
+        """Resolve a secret name to its id (ids starting with ``vsec_`` pass through)."""
+        if name_or_id.startswith("vsec_"):
+            return name_or_id
+        matches = [s for s in await self.list_secrets() if s.name.lower() == name_or_id.lower()]
+        if len(matches) == 1:
+            return matches[0].id
+        if len(matches) > 1:
+            raise ValueError(f"Multiple secrets are named '{name_or_id}'. Use the secret id (vsec_...).")
+        raise KeyError(f"No secret named or identified by '{name_or_id}'.")
+
+    async def list_access(self, secret: str) -> list[VaultAccessGrant]:
+        res = await self._http.get(f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}/access")
         return [VaultAccessGrant.from_wire(a) for a in res.get("access", [])]
 
-    async def grant_access(self, secret_id: str, identity_id: str) -> VaultAccessGrant:
+    async def grant_access(self, secret: str, identity_id: str) -> VaultAccessGrant:
         return VaultAccessGrant.from_wire(
-            await self._http.post(f"{_BASE}/secrets/{secret_id}/access", json={"identity_id": identity_id})
+            await self._http.post(
+                f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}/access", json={"identity_id": identity_id}
+            )
         )
 
-    async def revoke_access(self, secret_id: str, identity_id: str) -> None:
-        await self._http.delete(f"{_BASE}/secrets/{secret_id}/access/{identity_id}")
+    async def revoke_access(self, secret: str, identity_id: str) -> None:
+        await self._http.delete(f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}/access/{identity_id}")
 
-    async def delete_secret(self, secret_id: str) -> None:
-        await self._http.delete(f"{_BASE}/secrets/{secret_id}")
+    async def delete_secret(self, secret: str) -> None:
+        await self._http.delete(f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}")
 
 
 class AsyncUnlockedVault:
