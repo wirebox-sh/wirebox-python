@@ -14,7 +14,7 @@
 - **Supported Python Runtimes**: 3.11, 3.12, 3.13, 3.14-dev
 - **Architecture Highlights**:
   - Dual Synchronous (`Wirebox` / `WireboxClient`) and Asynchronous (`AsyncWirebox` / `AsyncWireboxClient`) interfaces
-  - Inkbox ecosystem compatibility aliases (`iter_emails`, `list_emails`, `body_text`)
+  - Ecosystem compatibility aliases (`iter_emails`, `list_emails`, `body_text`)
   - WebSocket tunnel client with binary framing & bidirectional message proxying
   - Webhook HMAC-SHA256 signature verification
 
@@ -145,5 +145,5 @@ To release a new version to PyPI:
 ## 6. Coding & Architecture Rules
 
 1. **Dual Sync & Async Interfaces**: Every feature added to `Wirebox` (sync) must have a corresponding implementation in `AsyncWirebox` (async), keeping method signatures and return types identical.
-2. **Zero Heavy Runtime Dependencies**: The SDK runtime dependencies must stay minimal (`httpx` and `websockets` only). Avoid adding Pydantic or heavy frameworks to keep installation fast in serverless/agent sandboxes.
+2. **Minimal Runtime Dependencies**: Keep runtime dependencies lean. The base is `httpx` and `websockets`; the zero-knowledge vault adds `argon2-cffi` and `cryptography` (both ship universal wheels, so they install fast in serverless/agent sandboxes). Avoid adding Pydantic or other heavy frameworks.
 3. **No Unverified Commits**: Follow the project golden rule: never commit until test suites pass cleanly across both sync and async suites.

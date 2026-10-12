@@ -110,7 +110,7 @@ def test_client_create_identity_and_email_operations():
         assert agent.agent_handle == "sales-bot"
         assert agent.mailbox.email_address == "sales-bot@wireboxmail.com"
 
-        # Send email with body_text (inkbox compatibility)
+        # Send email with body_text (ecosystem compatibility)
         result = agent.send_email(
             to=["customer@example.com"], subject="Pricing", body_text="Here is pricing."
         )
@@ -121,7 +121,7 @@ def test_client_create_identity_and_email_operations():
         reply_res = agent.reply_email("msg_001", text="Thanks for contacting sales!")
         assert reply_res.id == "msg_002"
 
-        # List messages and iter_emails (inkbox compatibility)
+        # List messages and iter_emails (ecosystem compatibility)
         msgs = agent.list_messages(limit=10)
         assert len(msgs) == 1
         assert msgs[0].from_address == "customer@example.com"

@@ -20,6 +20,7 @@ from wirebox.mail_rules import MailRulesClient
 from wirebox.phone import PhoneClient
 from wirebox.tunnels import TunnelsClient
 from wirebox.types import IdentityData, WhoamiResult
+from wirebox.vault.client import VaultClient
 from wirebox.webhooks import WebhooksClient
 
 
@@ -62,6 +63,7 @@ class Wirebox:
         self.webhooks = WebhooksClient(self._transport)
         self.imessage = IMessageClient(self._transport)
         self.phone = PhoneClient(self._transport)
+        self.vault = VaultClient(self._transport)
 
     def create_identity(
         self,
