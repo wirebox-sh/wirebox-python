@@ -12,6 +12,7 @@ from typing import Any, Literal
 from urllib.parse import quote
 
 from wirebox._http import AsyncHttpTransport, SyncHttpTransport
+from wirebox.a2a.identity_client import A2AIdentityClient, AsyncA2AIdentityClient
 from wirebox.imessage import AsyncIMessageClient, IMessageClient
 from wirebox.mail import AsyncMailClient, MailClient
 from wirebox.mail_rules import (
@@ -66,6 +67,7 @@ class AgentIdentity:
         self._webhooks = WebhooksClient(http)
         self._imessage = IMessageClient(http)
         self._phone = PhoneClient(http)
+        self.a2a = A2AIdentityClient(self.agent_handle, self.id, http)
 
     @property
     def id(self) -> str:
@@ -627,6 +629,7 @@ class AsyncAgentIdentity:
         self._webhooks = AsyncWebhooksClient(http)
         self._imessage = AsyncIMessageClient(http)
         self._phone = AsyncPhoneClient(http)
+        self.a2a = AsyncA2AIdentityClient(self.agent_handle, self.id, http)
 
     @property
     def id(self) -> str:

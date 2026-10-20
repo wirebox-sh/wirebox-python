@@ -12,6 +12,7 @@ import httpx
 
 from wirebox._config import resolve_client_settings
 from wirebox._http import DEFAULT_TIMEOUT_SECONDS, AsyncHttpTransport
+from wirebox.a2a import AsyncA2AClient
 from wirebox.exceptions import NotFoundError
 from wirebox.identity import AsyncAgentIdentity
 from wirebox.imessage import AsyncIMessageClient
@@ -64,6 +65,11 @@ class AsyncWirebox:
         self.imessage = AsyncIMessageClient(self._transport)
         self.phone = AsyncPhoneClient(self._transport)
         self.vault = AsyncVaultClient(self._transport)
+        self.a2a = AsyncA2AClient(
+            api_key=resolved_key,
+            platform_base_url=resolved_url,
+            timeout=timeout,
+        )
 
     async def create_identity(
         self,

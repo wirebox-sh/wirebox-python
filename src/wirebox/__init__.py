@@ -5,6 +5,29 @@ agents with dedicated phone numbers, email inboxes, network tunnels, and webhook
 """
 
 from wirebox._version import __version__
+from wirebox.a2a import (
+    A2AArtifact,
+    A2ACapabilities,
+    A2ACard,
+    A2AClient,
+    A2AIdentityClient,
+    A2AInterface,
+    A2AMessage,
+    A2APart,
+    A2AProtocolError,
+    A2AReplyIntent,
+    A2AResolvedTarget,
+    A2ASettings,
+    A2ASkill,
+    A2ATask,
+    A2ATaskState,
+    A2ATaskStatus,
+    A2AWatchEvent,
+    AsyncA2AClient,
+    AsyncA2AIdentityClient,
+    AsyncTaskHandle,
+    TaskHandle,
+)
 from wirebox.async_client import AsyncWirebox
 from wirebox.client import Wirebox
 from wirebox.exceptions import (
@@ -102,6 +125,28 @@ __all__ = [
     "AsyncPhoneClient",
     "TunnelSession",
     "verify_webhook",
+    # A2A Protocol
+    "A2AClient",
+    "AsyncA2AClient",
+    "TaskHandle",
+    "AsyncTaskHandle",
+    "A2AIdentityClient",
+    "AsyncA2AIdentityClient",
+    "A2AProtocolError",
+    "A2ATask",
+    "A2ATaskState",
+    "A2ATaskStatus",
+    "A2AMessage",
+    "A2APart",
+    "A2AArtifact",
+    "A2ACard",
+    "A2ASettings",
+    "A2ASkill",
+    "A2ACapabilities",
+    "A2AInterface",
+    "A2AResolvedTarget",
+    "A2AReplyIntent",
+    "A2AWatchEvent",
     # Exceptions
     "WireboxError",
     "WireboxAPIError",
