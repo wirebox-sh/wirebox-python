@@ -613,9 +613,7 @@ class AsyncMailClient:
         if limit is not None:
             params["limit"] = limit
 
-        data = await self._http.get(
-            f"/v1/mailboxes/{quote(mailbox_address)}/search", params=params
-        )
+        data = await self._http.get(f"/v1/mailboxes/{quote(mailbox_address)}/search", params=params)
         if isinstance(data, dict):
             messages_raw = data.get("items") or data.get("messages") or []
         elif isinstance(data, list):

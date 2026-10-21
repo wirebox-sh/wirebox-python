@@ -51,7 +51,9 @@ def test_payload_round_trip_and_aad():
 
 def test_init_material_unlockable():
     material, oek = crypto.create_vault_init_material(VAULT_KEY)
-    mk = crypto.derive_master_key(VAULT_KEY, crypto.from_base64(material.kdf_salt), material.kdf_params)
+    mk = crypto.derive_master_key(
+        VAULT_KEY, crypto.from_base64(material.kdf_salt), material.kdf_params
+    )
     assert crypto.compute_auth_hash(mk) == material.auth_hash
     assert crypto.unwrap_org_key(mk, material.wrapped_org_key) == oek
 
@@ -61,10 +63,17 @@ def test_init_material_unlockable():
 
 @pytest.mark.parametrize(
     "seconds,expected",
-    [(59, "94287082"), (1111111109, "07081804"), (1111111111, "14050471"), (1234567890, "89005924")],
+    [
+        (59, "94287082"),
+        (1111111109, "07081804"),
+        (1111111111, "14050471"),
+        (1234567890, "89005924"),
+    ],
 )
 def test_totp_rfc6238_sha1(seconds, expected):
-    code = generate_totp(TOTPConfig(secret=RFC_SECRET, algorithm="sha1", digits=8, period=30), seconds * 1000)
+    code = generate_totp(
+        TOTPConfig(secret=RFC_SECRET, algorithm="sha1", digits=8, period=30), seconds * 1000
+    )
     assert code.code == expected
 
 
@@ -90,13 +99,27 @@ class FakeVaultTransport:
         if path == "/v1/vault":
             if not self.vault:
                 return {"initialized": False}
-            return {"initialized": True, "id": "vlt_x", "kdf_salt": self.vault["kdf_salt"], "kdf_params": self.vault["kdf_params"]}
+            return {
+                "initialized": True,
+                "id": "vlt_x",
+                "kdf_salt": self.vault["kdf_salt"],
+                "kdf_params": self.vault["kdf_params"],
+            }
         if path == "/v1/vault/unlock":
             assert params and params["auth_hash"] == self.vault["auth_hash"]
-            return {"wrapped_org_key": self.vault["wrapped_org_key"], "kdf_params": self.vault["kdf_params"], "secrets": self.secrets}
+            return {
+                "wrapped_org_key": self.vault["wrapped_org_key"],
+                "kdf_params": self.vault["kdf_params"],
+                "secrets": self.secrets,
+            }
         if path == "/v1/vault/secrets":
             t = (params or {}).get("type")
-            rows = [{k: v for k, v in s.items() if k != "encrypted_payload"} | {"created_at": "t", "updated_at": "t"} for s in self.secrets if not t or s["type"] == t]
+            rows = [
+                {k: v for k, v in s.items() if k != "encrypted_payload"}
+                | {"created_at": "t", "updated_at": "t"}
+                for s in self.secrets
+                if not t or s["type"] == t
+            ]
             return {"secrets": rows}
         if path.endswith("/access"):
             sid = path.split("/")[4]
@@ -106,13 +129,40 @@ class FakeVaultTransport:
     def post(self, path: str, *, json: Any = None, **_: Any) -> Any:
         if path == "/v1/vault/initialize":
             self.vault = dict(json)
-            return {"initialized": True, "id": "vlt_x", "kdf_salt": json["kdf_salt"], "kdf_params": json["kdf_params"]}
+            return {
+                "initialized": True,
+                "id": "vlt_x",
+                "kdf_salt": json["kdf_salt"],
+                "kdf_params": json["kdf_params"],
+            }
         if path == "/v1/vault/secrets":
-            self.secrets.append({"id": json["id"], "type": json["type"], "name": json["name"], "description": json.get("description"), "encrypted_payload": json["encrypted_payload"], "created_at": "t", "updated_at": "t"})
-            return {"id": json["id"], "type": json["type"], "name": json["name"], "description": json.get("description"), "created_at": "t", "updated_at": "t"}
+            self.secrets.append(
+                {
+                    "id": json["id"],
+                    "type": json["type"],
+                    "name": json["name"],
+                    "description": json.get("description"),
+                    "encrypted_payload": json["encrypted_payload"],
+                    "created_at": "t",
+                    "updated_at": "t",
+                }
+            )
+            return {
+                "id": json["id"],
+                "type": json["type"],
+                "name": json["name"],
+                "description": json.get("description"),
+                "created_at": "t",
+                "updated_at": "t",
+            }
         if path.endswith("/access"):
             sid = path.split("/")[4]
-            grant = {"id": f"vacc_{len(self.access)+1}", "secret_id": sid, "identity_id": json["identity_id"], "created_at": "t"}
+            grant = {
+                "id": f"vacc_{len(self.access) + 1}",
+                "secret_id": sid,
+                "identity_id": json["identity_id"],
+                "created_at": "t",
+            }
             self.access.append(grant)
             return grant
         raise AssertionError(path)
@@ -120,13 +170,26 @@ class FakeVaultTransport:
     def patch(self, path: str, *, json: Any = None, **_: Any) -> Any:
         sid = path.split("/")[4]
         s = next(x for x in self.secrets if x["id"] == sid)
-        s.update({k: v for k, v in json.items() if k in ("name", "description", "encrypted_payload")})
-        return {"id": s["id"], "type": s["type"], "name": s["name"], "description": s.get("description"), "created_at": "t", "updated_at": "t2"}
+        s.update(
+            {k: v for k, v in json.items() if k in ("name", "description", "encrypted_payload")}
+        )
+        return {
+            "id": s["id"],
+            "type": s["type"],
+            "name": s["name"],
+            "description": s.get("description"),
+            "created_at": "t",
+            "updated_at": "t2",
+        }
 
     def delete(self, path: str, **_: Any) -> Any:
         parts = path.split("/")
         if path.endswith("/access/" + parts[-1]) and len(parts) == 7:
-            self.access = [a for a in self.access if not (a["secret_id"] == parts[4] and a["identity_id"] == parts[6])]
+            self.access = [
+                a
+                for a in self.access
+                if not (a["secret_id"] == parts[4] and a["identity_id"] == parts[6])
+            ]
         else:
             self.secrets = [s for s in self.secrets if s["id"] != parts[4]]
         return None
@@ -145,10 +208,14 @@ def test_client_end_to_end():
     created = unlocked.create_secret(
         type=VaultSecretType.LOGIN,
         name="GitHub",
-        payload=LoginPayload(username="eva", password="hunter2", totp=TOTPConfig(secret=RFC_SECRET)),
+        payload=LoginPayload(
+            username="eva", password="hunter2", totp=TOTPConfig(secret=RFC_SECRET)
+        ),
     )
     assert created.id.startswith("vsec_")
-    unlocked.create_secret(type=VaultSecretType.API_KEY, name="Stripe", payload=ApiKeyPayload(key="sk_live_1"))
+    unlocked.create_secret(
+        type=VaultSecretType.API_KEY, name="Stripe", payload=ApiKeyPayload(key="sk_live_1")
+    )
     unlocked.create_secret(type=VaultSecretType.OTHER, name="Note", payload=OtherPayload(data="x"))
 
     # ciphertext does not contain the plaintext
@@ -165,7 +232,11 @@ def test_client_end_to_end():
     assert vault_api.list_secrets(type="login")[0].name == "GitHub"
 
     # update preserves untouched fields
-    reopened.update_secret("GitHub", name="GitHub2", payload=LoginPayload(username="eva", password="new", totp=TOTPConfig(secret=RFC_SECRET)))
+    reopened.update_secret(
+        "GitHub",
+        name="GitHub2",
+        payload=LoginPayload(username="eva", password="new", totp=TOTPConfig(secret=RFC_SECRET)),
+    )
     again = vault_api.unlock(vk)
     assert again.get_login("GitHub2").password == "new"
 
@@ -211,7 +282,9 @@ async def test_async_client_end_to_end():
     created = await unlocked.create_secret(
         type=VaultSecretType.LOGIN,
         name="GitHub",
-        payload=LoginPayload(username="eva", password="hunter2", totp=TOTPConfig(secret=RFC_SECRET)),
+        payload=LoginPayload(
+            username="eva", password="hunter2", totp=TOTPConfig(secret=RFC_SECRET)
+        ),
     )
 
     reopened = await vault_api.unlock(vk)

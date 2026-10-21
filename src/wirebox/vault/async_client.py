@@ -69,13 +69,17 @@ class AsyncVaultClient:
     async def unlock(self, vault_key: str | None = None) -> AsyncUnlockedVault:
         key = vault_key or os.environ.get("WIREBOX_VAULT_KEY")
         if not key:
-            raise ValueError("A vault key is required. Pass it to unlock() or set WIREBOX_VAULT_KEY.")
+            raise ValueError(
+                "A vault key is required. Pass it to unlock() or set WIREBOX_VAULT_KEY."
+            )
 
         info = await self.info()
         if not info.initialized or not info.kdf_salt:
             raise ValueError("No vault exists for this organization.")
 
-        master_key = await _derive_master_key(key, crypto.from_base64(info.kdf_salt), info.kdf_params)
+        master_key = await _derive_master_key(
+            key, crypto.from_base64(info.kdf_salt), info.kdf_params
+        )
         auth_hash = crypto.compute_auth_hash(master_key)
         data = await self._http.get(f"{_BASE}/unlock", params={"auth_hash": auth_hash})
 
@@ -86,7 +90,9 @@ class AsyncVaultClient:
 
         decrypted: list[DecryptedSecret] = []
         for raw in data.get("secrets", []):
-            payload = payload_from_wire(raw["type"], crypto.decrypt_payload(org_key, raw["encrypted_payload"], raw["id"]))
+            payload = payload_from_wire(
+                raw["type"], crypto.decrypt_payload(org_key, raw["encrypted_payload"], raw["id"])
+            )
             decrypted.append(
                 DecryptedSecret(
                     id=raw["id"],
@@ -113,22 +119,29 @@ class AsyncVaultClient:
         if len(matches) == 1:
             return matches[0].id
         if len(matches) > 1:
-            raise ValueError(f"Multiple secrets are named '{name_or_id}'. Use the secret id (vsec_...).")
+            raise ValueError(
+                f"Multiple secrets are named '{name_or_id}'. Use the secret id (vsec_...)."
+            )
         raise KeyError(f"No secret named or identified by '{name_or_id}'.")
 
     async def list_access(self, secret: str) -> list[VaultAccessGrant]:
-        res = await self._http.get(f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}/access")
+        res = await self._http.get(
+            f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}/access"
+        )
         return [VaultAccessGrant.from_wire(a) for a in res.get("access", [])]
 
     async def grant_access(self, secret: str, identity_id: str) -> VaultAccessGrant:
         return VaultAccessGrant.from_wire(
             await self._http.post(
-                f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}/access", json={"identity_id": identity_id}
+                f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}/access",
+                json={"identity_id": identity_id},
             )
         )
 
     async def revoke_access(self, secret: str, identity_id: str) -> None:
-        await self._http.delete(f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}/access/{identity_id}")
+        await self._http.delete(
+            f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}/access/{identity_id}"
+        )
 
     async def delete_secret(self, secret: str) -> None:
         await self._http.delete(f"{_BASE}/secrets/{await self._resolve_secret_id(secret)}")
@@ -155,7 +168,9 @@ class AsyncUnlockedVault:
         if len(matches) == 1:
             return matches[0]
         if len(matches) > 1:
-            raise ValueError(f"Multiple secrets are named '{name_or_id}'. Use the secret id (vsec_...).")
+            raise ValueError(
+                f"Multiple secrets are named '{name_or_id}'. Use the secret id (vsec_...)."
+            )
         raise KeyError(f"No secret named or identified by '{name_or_id}' in the unlocked vault.")
 
     def get_by_name(self, name: str) -> DecryptedSecret:
@@ -193,7 +208,12 @@ class AsyncUnlockedVault:
     ) -> DecryptedSecret:
         secret_id = _generate_secret_id()
         encrypted = crypto.encrypt_payload(self._org_key, payload_to_wire(payload), secret_id)
-        body: dict[str, Any] = {"id": secret_id, "type": type, "name": name, "encrypted_payload": encrypted}
+        body: dict[str, Any] = {
+            "id": secret_id,
+            "type": type,
+            "name": name,
+            "encrypted_payload": encrypted,
+        }
         if description is not None:
             body["description"] = description
         summary = await self._http.post(f"{_BASE}/secrets", json=body)
@@ -224,10 +244,16 @@ class AsyncUnlockedVault:
         if description is not None:
             body["description"] = description
         if payload is not None:
-            body["encrypted_payload"] = crypto.encrypt_payload(self._org_key, payload_to_wire(payload), target.id)
+            body["encrypted_payload"] = crypto.encrypt_payload(
+                self._org_key, payload_to_wire(payload), target.id
+            )
 
         summary = await self._http.patch(f"{_BASE}/secrets/{target.id}", json=body)
-        new_payload = payload_from_wire(target.type, payload_to_wire(payload)) if payload is not None else target.payload
+        new_payload = (
+            payload_from_wire(target.type, payload_to_wire(payload))
+            if payload is not None
+            else target.payload
+        )
         secret = DecryptedSecret(
             id=summary["id"],
             type=summary["type"],
