@@ -12,6 +12,7 @@ import httpx
 
 from wirebox._config import resolve_client_settings
 from wirebox._http import DEFAULT_TIMEOUT_SECONDS, SyncHttpTransport
+from wirebox.a2a import A2AClient
 from wirebox.exceptions import NotFoundError
 from wirebox.identity import AgentIdentity
 from wirebox.imessage import IMessageClient
@@ -64,6 +65,11 @@ class Wirebox:
         self.imessage = IMessageClient(self._transport)
         self.phone = PhoneClient(self._transport)
         self.vault = VaultClient(self._transport)
+        self.a2a = A2AClient(
+            api_key=resolved_key,
+            platform_base_url=resolved_url,
+            timeout=timeout,
+        )
 
     def create_identity(
         self,

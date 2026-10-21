@@ -62,7 +62,9 @@ def generate_totp(config: TOTPConfig, at_ms: int | None = None) -> TOTPCode:
     counter = int(now_ms / 1000 / config.period)
 
     message = counter.to_bytes(8, "big")
-    digest = hmac.new(_base32_decode(config.secret), message, _ALGORITHMS[config.algorithm]).digest()
+    digest = hmac.new(
+        _base32_decode(config.secret), message, _ALGORITHMS[config.algorithm]
+    ).digest()
 
     offset = digest[-1] & 0x0F
     binary = (

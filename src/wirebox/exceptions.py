@@ -81,6 +81,16 @@ class FreeTierLimitExceededError(WireboxAPIError):
     """Raised when an organization attempts to provision resources beyond their free tier allowance."""
 
 
+class A2AProtocolError(WireboxError):
+    """Raised when an A2A JSON-RPC 2.0 error response is returned by a remote agent."""
+
+    def __init__(self, code: int, message: str, data: Any = None) -> None:
+        super().__init__(f"A2A JSON-RPC error {code}: {message}")
+        self.code = code
+        self.message = message
+        self.data = data
+
+
 def parse_api_error(status: int, data: Any, request_id: str | None = None) -> WireboxAPIError:
     """Parses a response status and body into the appropriate WireboxAPIError subclass."""
     code = "unknown_error"
